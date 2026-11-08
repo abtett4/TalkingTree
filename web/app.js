@@ -1,11 +1,9 @@
-// Talking Tree web host.
-// Uses the RNBO Web Export in ./export/ when it exists; otherwise a Web Audio
-// preview engine that follows rnbo/PATCH-SPEC.md, so the page works before the export.
+// Talking Tree, web version: the 2019 Max/MSP patch rebuilt in plain Web Audio.
 
 const RINGS = 5;
 const FRAME_MS = 66; // the Arduino sketch prints roughly every 60-80 ms
 
-// Param defaults from rnbo/PATCH-SPEC.md (2019 loadbang values).
+// Defaults are the 2019 patch's loadbang values (see docs/BEHAVIOR.md).
 const PARAMS = [
   { id: "speed", label: "Wander speed", min: 100, max: 1000, step: 1, value: 213, unit: "ms" },
   { id: "loopLength", label: "Loop length", min: 50, max: 3000, step: 1, value: 2373, unit: "ms" },
@@ -14,8 +12,8 @@ const PARAMS = [
   { id: "delayGain", label: "Delay level", min: -70, max: 6, step: 0.5, value: -10, unit: "dB" },
   { id: "threshold", label: "Touch threshold", min: 0, max: 2000, step: 1, value: 500, unit: "" },
 ];
-// Not shown as sliders; set from the data file.
-const HIDDEN = { yearOffset: 390, dataMin: 0.85, dataMax: 1.2 };
+// Not shown as sliders. Ring N plays data year yearOffset + N - 1; dataMin/dataMax is the 2019 mapping range.
+const HIDDEN = { yearOffset: 0, dataMin: 0.85, dataMax: 1.2 };
 
 const $ = (id) => document.getElementById(id);
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
@@ -30,52 +28,10 @@ let rings = new Array(RINGS).fill(0);
 
 // ---------------------------------------------------------------- engines
 
-class RnboEngine {
-  static async create(ctx, patcher) {
-    const version = patcher.desc.meta.rnboversion;
-    if (!window.RNBO) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = `https://c74-public.nyc3.digitaloceanspaces.com/rnbo/${encodeURIComponent(version)}/rnbo.min.js`;
-        s.onload = resolve;
-        s.onerror = () => reject(new Error(`Could not load @rnbo/js ${version}`));
-        document.body.append(s);
-      });
-    }
-    const device = await window.RNBO.createDevice({ context: ctx, patcher });
-    device.node.connect(ctx.destination);
-    return new RnboEngine(ctx, device);
-  }
-  constructor(ctx, device) {
-    this.ctx = ctx;
-    this.device = device;
-    this.name = "RNBO export";
-    const missing = [...PARAMS.map((p) => p.id), ...Object.keys(HIDDEN), "ring1"].filter((id) => !device.parametersById.has(id));
-    if (missing.length) console.warn("RNBO export is missing params:", missing.join(", "));
-  }
-  setParam(id, value) {
-    const p = this.device.parametersById.get(id);
-    if (p) p.value = value;
-  }
-  setRings(values) {
-    values.forEach((v, i) => this.setParam(`ring${i + 1}`, v));
-  }
-  async setSample(audioBuffer) {
-    await this.device.setDataBuffer("sample", audioBuffer);
-    this.setParam("fileLengthMs", audioBuffer.duration * 1000); // only used if the patch has it
-  }
-  async setTreeData(values) {
-    const buf = this.ctx.createBuffer(1, values.length, this.ctx.sampleRate);
-    buf.copyToChannel(Float32Array.from(values), 0);
-    await this.device.setDataBuffer("treedata", buf);
-  }
-}
-
-// Mirrors the RNBO patch so the page is playable before the export exists.
-class PreviewEngine {
+// The sound engine: the 2019 Max patch rebuilt in Web Audio. Behaviour follows docs/BEHAVIOR.md.
+class Engine {
   constructor(ctx) {
     this.ctx = ctx;
-    this.name = "Web Audio preview (no RNBO export yet)";
     this.p = Object.fromEntries(PARAMS.map((p) => [p.id, p.value]));
     Object.assign(this.p, HIDDEN);
     this.data = [];
@@ -177,16 +133,6 @@ class PreviewEngine {
     this.source.loopStart = start;
     this.source.loopEnd = Math.max(end, start + 0.01);
   }
-}
-
-async function loadEngine(ctx) {
-  try {
-    const res = await fetch("export/patch.export.json", { cache: "no-store" });
-    if (res.ok) return await RnboEngine.create(ctx, await res.json());
-  } catch (err) {
-    console.warn("RNBO export not loaded, using preview engine:", err);
-  }
-  return new PreviewEngine(ctx);
 }
 
 // ---------------------------------------------------------------- data and audio
@@ -406,9 +352,7 @@ $("start").addEventListener("click", async () => {
   try {
     ctx = new AudioContext();
     await loadTreeData();
-    engine = await loadEngine(ctx);
-    // ring 1 = the data file's first year; the RNBO patch's yearOffset counts from index 0 of treedata.
-    for (const [id, v] of Object.entries({ ...HIDDEN, yearOffset: 0 })) engine.setParam(id, v);
+    engine = new Engine(ctx);
     for (const p of PARAMS) engine.setParam(p.id, paramValue(p.id));
     await engine.setTreeData(treeData.values);
     await loadSample($("sound").value);
@@ -422,7 +366,7 @@ $("start").addEventListener("click", async () => {
       $("serial").disabled = false;
     }
     $("readout").textContent = "Touch and hold a ring.";
-    status(`Engine: ${engine.name}.`);
+    status("");
   } catch (err) {
     console.error(err);
     status(`Could not start: ${err.message}`);

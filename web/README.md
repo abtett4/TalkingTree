@@ -13,12 +13,9 @@ python -m http.server 8000
 
 Then open http://localhost:8000.
 
-## Engines
+## How it works
 
-- **RNBO export (the real one):** put the RNBO Web Export output in `web/export/`, so that `web/export/patch.export.json` exists.
-  The page loads the matching @rnbo/js version and uses the device. Param and buffer names must match `rnbo/PATCH-SPEC.md`.
-- **Preview:** until that file exists, the page uses a small Web Audio engine that follows the same spec,
-  so it can be tested and shown before the export is ready. The status line says which engine is running.
+`app.js` rebuilds the 2019 Max/MSP patch in plain Web Audio, with no libraries or build step. A looping sample player wanders through the sound file, and a feedback delay with a lowpass filter sits on top. The tree-ring value for the touched year sets the playback rate and the filter cutoff. `docs/BEHAVIOR.md` describes the behaviour independent of any tool, and the Raspberry Pi version (Pure Data) will follow it too.
 
 ## Inputs
 
