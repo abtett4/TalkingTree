@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Talking Tree</title>
+  <meta name="description" content="An interactive sonification of Colorado Ponderosa Pine tree-ring data. Touch a ring to hear its year.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Talking Tree</h1>
+      <p class="lede">Each ring is a year of growth from a Colorado Ponderosa Pine. Touch and hold a ring to hear it: years of faster growth play faster and brighter.</p>
+    </header>
+
+    <section class="stage">
+      <svg id="tree" viewBox="-110 -110 220 220" role="group" aria-label="Tree rings, innermost is the earliest year"></svg>
+      <p id="readout" class="readout" aria-live="polite">Press Start, then touch a ring.</p>
+    </section>
+
+    <section class="controls">
+      <div class="buttons">
+        <button id="start" class="primary">Start</button>
+        <button id="demo" disabled aria-pressed="false">Demo</button>
+        <button id="serial" disabled hidden>Connect Arduino</button>
+      </div>
+
+      <label class="field">Sound
+        <select id="sound" disabled>
+          <option value="leaf1">Leaves 1</option>
+          <option value="leaf2" selected>Leaves 2</option>
+          <option value="leaf3">Leaves 3</option>
+          <option value="log1">Log 1</option>
+          <option value="log2">Log 2</option>
+          <option value="log3">Log 3</option>
+        </select>
+      </label>
+
+      <details>
+        <summary>Sound settings</summary>
+        <div id="params" class="params"></div>
+      </details>
+
+      <p id="status" class="status"></p>
+    </section>
+
+    <footer>
+      <p>Originally built in Max/MSP with an Arduino and capacitive sensors, ATLS 3300, CU Boulder, Spring 2019, by Alan Tett and Abby Rinerson. Web version built with RNBO.</p>
+    </footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

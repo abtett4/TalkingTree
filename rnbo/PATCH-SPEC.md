@@ -25,7 +25,7 @@ Keep these names exactly. The page is being written against them.
 | --- | --- | --- | --- |
 | `ring1` to `ring5` | 0 to 4000 | 0 | raw capacitive counts from the sketch |
 | `threshold` | 0 to 2000 | 500 | `>= 500`, `if $i1 >= 500` |
-| `yearOffset` | 0 to 1000 (int) | 390 | ring N reads `treedata[yearOffset + N - 1]`; 390 = 1990 in the 1600 to 2007 dataset |
+| `yearOffset` | 0 to 1000 (int) | 390 | ring N reads `treedata[yearOffset + N - 1]`; 390 = 1990 in the full 1600 to 2007 dataset. The page sets it to 0 while it loads the 18-value 1990 to 2007 file |
 | `dataMin` / `dataMax` | 0 to 3 | 0.85 / 1.2 | the `zmap 0.85 1.2 ...` input range (widen to 0.27 / 1.79 when the data expands) |
 | `speed` | 100 to 1000 ms | 213 | Speed slider (16) > metro interval |
 | `loopLength` | 50 to 3000 ms | 2373 | Second slider (100) > loop end offset |
