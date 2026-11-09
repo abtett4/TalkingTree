@@ -1,6 +1,7 @@
 // Talking Tree, web version: the 2019 Max/MSP patch rebuilt in plain Web Audio.
 
-const RINGS = 5;
+let RINGS = 0; // one ring per year in data/treedata.json, set at load
+const SENSOR_RINGS = 5; // rings on the physical tree; they play the first five years
 const FRAME_MS = 66; // the Arduino sketch prints roughly every 60-80 ms
 const POINTER_STRENGTH = 1400;
 const XFADE_S = 0.005; // crossfade when the playhead jumps into a new loop window
@@ -28,8 +29,8 @@ const dbToGain = (db) => Math.pow(10, db / 20);
 let ctx = null;
 let engine = null;
 let treeData = null; // { startYear, values }
-const sources = { pointer: new Array(RINGS).fill(0), serial: new Array(RINGS).fill(0), demo: new Array(RINGS).fill(0) };
-let rings = new Array(RINGS).fill(0);
+let sources = null; // per input: one strength value per ring
+let rings = [];
 
 // ---------------------------------------------------------------- engines
 
@@ -197,6 +198,10 @@ class Engine {
 async function loadTreeData() {
   const res = await fetch("data/treedata.json");
   treeData = await res.json();
+  RINGS = treeData.values.length;
+  const zeros = () => new Array(RINGS).fill(0);
+  sources = { pointer: zeros(), serial: zeros(), demo: zeros() };
+  rings = zeros();
 }
 
 const sampleCache = new Map();
@@ -216,8 +221,19 @@ const svg = $("tree");
 const NS = "http://www.w3.org/2000/svg";
 const R_PITH = 14;
 const R_OUTER = 104;
-const bandWidth = (R_OUTER - R_PITH) / RINGS;
 const lights = [];
+let edges = []; // edges[i]..edges[i+1] = radius range of ring i
+
+// Ring widths follow the growth index, like a real cross-section, but compressed
+// (half fixed, half proportional) so the thinnest years stay big enough to touch.
+function computeEdges() {
+  const v = treeData.values;
+  const mean = v.reduce((a, b) => a + b, 0) / v.length;
+  const w = v.map((x) => 0.5 + (0.5 * x) / mean);
+  const k = (R_OUTER - R_PITH) / w.reduce((a, b) => a + b, 0);
+  edges = [R_PITH];
+  w.forEach((x) => edges.push(edges.at(-1) + x * k));
+}
 
 function ringPath(r1, r2) {
   const circle = (r, sweep) => `M ${-r} 0 A ${r} ${r} 0 1 ${sweep} ${r} 0 A ${r} ${r} 0 1 ${sweep} ${-r} 0 Z`;
@@ -226,10 +242,10 @@ function ringPath(r1, r2) {
 
 function drawTree() {
   // Innermost ring is the earliest year, as in a real cross-section.
+  computeEdges();
   for (let i = 0; i < RINGS; i++) {
-    const r1 = R_PITH + bandWidth * i;
     const band = document.createElementNS(NS, "path");
-    band.setAttribute("d", ringPath(r1, r1 + bandWidth));
+    band.setAttribute("d", ringPath(edges[i], edges[i + 1]));
     band.setAttribute("fill-rule", "evenodd");
     band.setAttribute("class", `band ${i % 2 ? "odd" : "even"}`);
     const light = band.cloneNode();
@@ -242,11 +258,13 @@ function drawTree() {
   pith.setAttribute("r", R_PITH);
   pith.setAttribute("class", "band odd");
   svg.append(pith);
+  // Label every fifth year; the readout names whichever ring is playing.
   for (let i = 0; i < RINGS; i++) {
+    if ((treeData.startYear + i) % 5 !== 0) continue;
     const t = document.createElementNS(NS, "text");
     t.setAttribute("class", "label");
-    t.setAttribute("y", -(R_PITH + bandWidth * (i + 0.5)) + 2);
-    t.dataset.ring = i;
+    t.setAttribute("y", -(edges[i] + edges[i + 1]) / 2 + 1.6);
+    t.textContent = treeData.startYear + i;
     svg.append(t);
   }
 }
@@ -255,9 +273,6 @@ function drawTree() {
 const yearFor = (i) => (treeData ? treeData.startYear + i : null);
 const growthFor = (i) => (treeData ? treeData.values[i] : null);
 
-function labelRings() {
-  svg.querySelectorAll(".label").forEach((t) => (t.textContent = yearFor(+t.dataset.ring) ?? ""));
-}
 
 function ringAt(evt) {
   const pt = svg.createSVGPoint();
@@ -266,7 +281,8 @@ function ringAt(evt) {
   const p = pt.matrixTransform(svg.getScreenCTM().inverse());
   const d = Math.hypot(p.x, p.y);
   if (d < R_PITH || d > R_OUTER) return -1;
-  return Math.min(RINGS - 1, Math.floor((d - R_PITH) / bandWidth));
+  for (let i = 0; i < RINGS; i++) if (d < edges[i + 1]) return i;
+  return RINGS - 1;
 }
 
 // Mouse and touch press with a steady, medium-firm strength (delay time about 640 ms).
@@ -337,7 +353,7 @@ async function connectSerial() {
         // Sketch prints: lag \t ring1 \t ring2 \t ring3 \t ring4 \t ring5
         const parts = line.trim().split(/\s+/).map(Number);
         if (parts.length >= 6 && parts.every(Number.isFinite)) {
-          for (let i = 0; i < RINGS; i++) sources.serial[i] = parts[i + 1];
+          for (let i = 0; i < SENSOR_RINGS; i++) sources.serial[i] = parts[i + 1];
         }
       }
     }
@@ -495,12 +511,14 @@ $("start").addEventListener("click", async () => {
   status("Loading…");
   try {
     ctx = new AudioContext();
-    await loadTreeData();
     engine = new Engine(ctx);
     for (const p of PARAMS) engine.setParam(p.id, paramValue(p.id));
+    // Map the data's own range onto rate and cutoff, so no year clips. (2019 used 0.85 to 1.2,
+    // which only fit its five years.)
+    engine.setParam("dataMin", Math.min(...treeData.values));
+    engine.setParam("dataMax", Math.max(...treeData.values));
     await engine.setTreeData(treeData.values);
     await loadSample($("sound").value);
-    labelRings();
     setInterval(frame, FRAME_MS);
     requestAnimationFrame(animate);
     $("start").textContent = "Running";
@@ -529,5 +547,7 @@ $("serial").addEventListener("click", () => connectSerial().catch((err) => statu
 
 $("sound").addEventListener("change", () => loadSample($("sound").value).catch((err) => status(err.message)));
 
-drawTree();
 buildParams();
+loadTreeData()
+  .then(drawTree)
+  .catch((err) => status(`Could not load tree data: ${err.message}`));

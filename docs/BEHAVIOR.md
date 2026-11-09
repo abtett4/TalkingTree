@@ -29,14 +29,15 @@ Defaults are the 2019 patch's startup values.
 | feedback | 0 to 0.99 | 0.678 | dial (87) scaled 0 to 0.99 |
 | dryGain | dB | -6 | dry `gain~` (115); calibrate by ear |
 | delayGain | dB | -22 | delay `gain~` (99); set by ear in 2026 |
-| dataMin, dataMax | | 0.85, 1.2 | input range of the `zmap`s on the growth value |
+| dataMin, dataMax | | min and max of the loaded data (0.37, 1.44 for 1990 to 2007) | 2019 used 0.85, 1.2, which only fit its five years |
 | yearOffset | index | 0 | ring N reads data value `yearOffset + N - 1` |
 | sound | 6 files | leaf2 | file message boxes; leaf2.wav at load |
 
 ## Behaviour
 
 1. **Touch.** A ring is touched while its value is at or above `threshold`. Only changes of touched state matter.
-2. **Touch starts.** Look up the ring's growth value `v` (ring N gives year N of the data; 1990 to 1994 with the 2019 values).
+2. **Touch starts.** Look up the ring's growth value `v`. There is one ring per year of data (18 rings, 1990 to 2007).
+   The physical tree's five sensors play the first five years (1990 to 1994), as in 2019.
    - Playback rate = `v` mapped from dataMin..dataMax to 0.5..1.5, clipped.
    - Filter cutoff = `v` mapped from dataMin..dataMax to 50..10000 Hz, clipped (lowpass, Q about 0.7).
    - Start the wander clock.
@@ -74,4 +75,5 @@ source is attributed. With the full record, widen dataMin/dataMax to about 0.27 
 | Release set the clock interval to 0 | Release only stops the clock |
 | Threshold hardcoded in several places | One `threshold` parameter |
 | Random walk moved at most 10% of the file and stuck at the ends | `jump` setting (default 35%), wraps around the ends |
+| 5 rings, years 1990 to 1994 | 18 on-screen rings, 1990 to 2007, widths following growth; mapping range set from the data |
 | Sound chosen by hand in the patch | Chosen by the user; leaf2 by default |

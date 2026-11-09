@@ -107,7 +107,7 @@ h1 { margin: 0 0 4px; font-size: 2rem; letter-spacing: -0.01em; }
 #tree .band.even { fill: var(--wood-1); }
 #tree .band.odd { fill: var(--wood-2); }
 #tree .light { fill: var(--glow); pointer-events: none; transition: opacity 80ms; }
-#tree .label { fill: var(--fg); font-size: 6px; pointer-events: none; text-anchor: middle; }
+#tree .label { fill: var(--fg); font-size: 4.5px; pointer-events: none; text-anchor: middle; }
 .readout { min-height: 1.5em; margin: 8px 0 0; font-variant-numeric: tabular-nums; }
 
 .controls {
