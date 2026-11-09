@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Talking Tree</title>
+  <meta name="description" content="An interactive sonification of Colorado Ponderosa Pine tree-ring data. Touch a ring to hear its year.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Talking Tree</h1>
+      <p class="lede">Each ring is one year of growth from a Colorado Ponderosa Pine, 1990 to 2007, drawn wider where the tree grew more. Touch and hold a ring to hear it: years of faster growth play faster and brighter.</p>
+    </header>
+
+    <div class="layout">
+      <section class="stage">
+        <p id="readout" class="readout" aria-live="polite">Press Start in the middle of the tree, then touch a ring.</p>
+        <div class="treewrap">
+          <svg id="tree" viewBox="-110 -110 220 220" role="group" aria-label="Tree rings, innermost is the earliest year"></svg>
+          <button id="start" class="primary pith">Start</button>
+        </div>
+        <p id="status" class="status"></p>
+      </section>
+
+      <div class="side">
+      <section class="datapanel" aria-labelledby="chart-title">
+        <h2 id="chart-title">Growth by year</h2>
+        <div class="chartlegend">
+          <span><span class="swatch above"></span>Above average: leaves</span>
+          <span><span class="swatch below"></span>Below average: log</span>
+          <span><span class="swatch memory"></span>Previous 5-year average: echo length</span>
+        </div>
+        <div class="chartwrap">
+          <svg id="chart" role="img" aria-label="Bar chart of the tree-ring growth index for each year, drawn above or below the average"></svg>
+          <div id="tip" class="tip" hidden></div>
+        </div>
+        <details class="datatable">
+          <summary>Data table</summary>
+          <table id="datatable"><thead><tr><th>Year</th><th>Growth index</th><th>Previous 5-year avg</th><th>Sound</th></tr></thead><tbody></tbody></table>
+        </details>
+      </section>
+
+      <section class="wavepanel debug-only" aria-label="Waveform view">
+        <h2>Playback</h2>
+        <canvas id="wave" aria-label="Waveform of the current sound file, with the loop window and playhead"></canvas>
+        <div class="meterbar" title="Output level"><span id="meter"></span></div>
+        <pre id="waveinfo" class="waveinfo">Press Start to load a sound.</pre>
+        <p class="legend"><span class="swatch loop"></span>loop window <span class="swatch head"></span>playhead (grey when stopped) · the bar is output level; it turns red below -60 dB (dead air)</p>
+      </section>
+      </div>
+    </div>
+
+    <section class="controls debug-only">
+      <div class="buttons">
+        <button id="demo" disabled aria-pressed="false">Demo</button>
+        <button id="serial" disabled hidden>Connect Arduino</button>
+      </div>
+
+      <label class="field">Sound
+        <select id="sound" disabled>
+          <option value="auto" selected>By year (leaves or log)</option>
+          <option value="leaf1">Leaves 1</option>
+          <option value="leaf2">Leaves 2</option>
+          <option value="leaf3">Leaves 3</option>
+          <option value="log1">Log 1</option>
+          <option value="log2">Log 2</option>
+          <option value="log3">Log 3</option>
+        </select>
+      </label>
+
+      <details>
+        <summary>Sound settings</summary>
+        <div id="params" class="params"></div>
+      </details>
+
+    </section>
+
+    <footer>
+      <p>Originally built in Max/MSP with an Arduino and capacitive sensors, ATLS 3300, CU Boulder, Spring 2019, by Alan Tett and Abby Rinerson. Rebuilt for the web in 2026 with Web Audio.</p>
+    </footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

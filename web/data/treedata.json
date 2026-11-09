@@ -1,0 +1,24 @@
+{
+ "description": "Tree ring growth index, Colorado Ponderosa Pine, 1990-2007 (values used in the 2019 Talking Tree patch). Source attribution pending.",
+ "startYear": 1990,
+ "values": [
+  1.1104,
+  1.02235,
+  1.10635,
+  0.9457,
+  0.8577,
+  1.2973,
+  1.12795,
+  1.1182,
+  1.4446,
+  1.3316,
+  0.8136,
+  0.9554,
+  0.3703,
+  1.2072,
+  1.0647,
+  0.9692,
+  0.4131,
+  1.1486
+ ]
+}
