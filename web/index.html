@@ -10,15 +10,24 @@
 <body>
   <main>
     <header>
+      <svg class="sprig" viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round">
+        <path d="M8 58 C 22 44, 34 30, 56 8" stroke-width="2.2"/>
+        <g stroke-width="1.2" opacity="0.9">
+          <path d="M14 52 l-8 -3 M14 52 l3 -8 M20 46 l-9 -2 M20 46 l2 -9 M26 40 l-10 -1 M26 40 l1 -10 M32 34 l-10 0 M32 34 l0 -10 M38 28 l-9 1 M38 28 l-1 -9 M44 22 l-8 2 M44 22 l-2 -8 M50 15 l-7 2 M50 15 l-2 -7"/>
+          <path d="M14 52 l-2 9 M20 46 l-1 10 M26 40 l1 10 M32 34 l2 10 M38 28 l3 9 M44 22 l4 8 M50 15 l5 6" opacity="0.6"/>
+        </g>
+      </svg>
+      <div>
       <h1>Talking Tree</h1>
       <p class="lede">Each ring is one year of growth from a Colorado Ponderosa Pine, 1990 to 2007, drawn wider where the tree grew more. Touch and hold a ring to hear it: years of faster growth play faster and brighter.</p>
+      </div>
     </header>
 
     <div class="layout">
       <section class="stage">
         <p id="readout" class="readout" aria-live="polite">Press Start in the middle of the tree, then touch a ring.</p>
         <div class="treewrap">
-          <svg id="tree" viewBox="-110 -110 220 220" role="group" aria-label="Tree rings, innermost is the earliest year"></svg>
+          <svg id="tree" viewBox="-117 -117 234 234" role="group" aria-label="Tree rings, innermost is the earliest year"></svg>
           <button id="start" class="primary pith">Start</button>
         </div>
         <p id="status" class="status"></p>
