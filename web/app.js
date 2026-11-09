@@ -664,9 +664,11 @@ $("start").addEventListener("click", async () => {
     if (ctx.state === "running") {
       await ctx.suspend();
       $("start").textContent = "Resume";
+      $("start").classList.remove("on");
     } else {
       await ctx.resume();
       $("start").textContent = "Pause";
+      $("start").classList.add("on");
     }
     return;
   }
@@ -688,6 +690,7 @@ $("start").addEventListener("click", async () => {
     setInterval(frame, FRAME_MS);
     requestAnimationFrame(animate);
     $("start").textContent = "Pause";
+    $("start").classList.add("on"); // amber while the sound is on
     $("start").disabled = false;
     $("demo").disabled = false;
     $("sound").disabled = false;
