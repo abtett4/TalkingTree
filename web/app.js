@@ -287,7 +287,7 @@ async function chooseSound(value) {
 const svg = $("tree");
 const NS = "http://www.w3.org/2000/svg";
 const R_PITH = 20; // leaves room for the Start button in the middle
-const R_OUTER = 104;
+const R_OUTER = 96; // leaves room for the bark
 const lights = [];
 let edges = []; // edges[i]..edges[i+1] = radius range of ring i
 
@@ -302,37 +302,89 @@ function computeEdges() {
   w.forEach((x) => edges.push(edges.at(-1) + x * k));
 }
 
-function ringPath(r1, r2) {
-  const circle = (r, sweep) => `M ${-r} 0 A ${r} ${r} 0 1 ${sweep} ${r} 0 A ${r} ${r} 0 1 ${sweep} ${-r} 0 Z`;
-  return `${circle(r2, 0)} ${circle(r1, 1)}`;
+// Rings are not perfect circles: each radius is pushed in and out with a few slow waves. The
+// waves grow toward the bark, so the tree reads as slightly off-centre, like a real trunk.
+const SEGMENTS = 144;
+function wobble(theta, r) {
+  const t = (r - R_PITH) / (R_OUTER - R_PITH); // 0 at the pith, 1 at the outer ring
+  return (
+    t * (0.05 * Math.cos(theta - 0.7) + 0.022 * Math.sin(2 * theta + 1.3) + 0.012 * Math.sin(5 * theta + 0.4)) +
+    0.004 * Math.sin(9 * theta + r * 0.37)
+  );
+}
+const radiusAt = (r, theta) => r * (1 + wobble(theta, r));
+
+function outline(r, reverse = false, rough = 0) {
+  const pts = [];
+  for (let k = 0; k < SEGMENTS; k++) {
+    const th = ((reverse ? SEGMENTS - k : k) / SEGMENTS) * 2 * Math.PI;
+    const jag = rough ? rough * (Math.sin(23 * th) * 0.5 + Math.sin(41 * th + 2) * 0.3 + Math.sin(67 * th + 5) * 0.2) : 0;
+    const rr = radiusAt(r, th) + jag;
+    pts.push(`${(rr * Math.cos(th)).toFixed(2)} ${(rr * Math.sin(th)).toFixed(2)}`);
+  }
+  return `M ${pts.join(" L ")} Z`;
+}
+const ringPath = (r1, r2) => `${outline(r2)} ${outline(r1, true)}`;
+
+function svgEl(tag, attrs, parent = svg) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.append(e);
+  return e;
 }
 
 function drawTree() {
-  // Innermost ring is the earliest year, as in a real cross-section.
   computeEdges();
+  const mean = treeData.values.reduce((a, b) => a + b, 0) / treeData.values.length;
+
+  // Wood-grain texture, applied over the rings at low strength.
+  const defs = svgEl("defs", {});
+  const f = svgEl("filter", { id: "grain", x: "-10%", y: "-10%", width: "120%", height: "120%" }, defs);
+  svgEl("feTurbulence", { type: "fractalNoise", baseFrequency: "0.9 0.35", numOctaves: 2, seed: 7, result: "n" }, f);
+  svgEl("feColorMatrix", { in: "n", type: "matrix", values: "0 0 0 0 0.25  0 0 0 0 0.15  0 0 0 0 0.05  0 0 0 0.55 0" }, f);
+  svgEl("feComposite", { in2: "SourceGraphic", operator: "in" }, f);
+
+  // Bark: a rough, dark band outside the last ring.
+  svgEl("path", { class: "bark", d: `${outline(R_OUTER + 9, false, 1.6)} ${outline(R_OUTER + 1.5, true)}`, "fill-rule": "evenodd" });
+  svgEl("path", { class: "cambium", d: ringPath(R_OUTER, R_OUTER + 1.8), "fill-rule": "evenodd" });
+
+  // Innermost ring is the earliest year. Each ring is pale earlywood with a thin dark
+  // latewood line at its outer edge, the way real rings look.
   for (let i = 0; i < RINGS; i++) {
-    const band = document.createElementNS(NS, "path");
-    band.setAttribute("d", ringPath(edges[i], edges[i + 1]));
-    band.setAttribute("fill-rule", "evenodd");
-    band.setAttribute("class", `band ${i % 2 ? "odd" : "even"}`);
-    const light = band.cloneNode();
-    light.setAttribute("class", "light");
+    const r1 = edges[i], r2 = edges[i + 1];
+    const g = treeData.values[i];
+    const band = svgEl("path", { d: ringPath(r1, r2), "fill-rule": "evenodd", class: "band" });
+    band.style.fill = `color-mix(in oklab, var(--early-hi) ${Math.round(clamp(g / (mean * 1.5), 0, 1) * 100)}%, var(--early-lo))`;
+    svgEl("path", { d: ringPath(r2 - Math.min(1.3, (r2 - r1) * 0.3), r2), "fill-rule": "evenodd", class: "late" });
+    const light = svgEl("path", { d: ringPath(r1, r2), "fill-rule": "evenodd", class: "light" });
     light.style.opacity = 0;
-    svg.append(band, light);
     lights[i] = light;
   }
-  const pith = document.createElementNS(NS, "circle");
-  pith.setAttribute("r", R_PITH);
-  pith.setAttribute("class", "band odd");
-  svg.append(pith);
+
+  // Rays: faint lines running out from the pith, plus two drying cracks from the bark.
+  const rays = svgEl("g", { class: "rays" });
+  for (let k = 0; k < 22; k++) {
+    const th = k * 2.39996 + 0.3; // golden-angle spacing looks irregular without being clumpy
+    const r0 = R_PITH + 4 + ((k * 37) % 23), r1 = radiusAt(R_OUTER - 2, th);
+    svgEl("line", { x1: r0 * Math.cos(th), y1: r0 * Math.sin(th), x2: r1 * Math.cos(th), y2: r1 * Math.sin(th) }, rays);
+  }
+  for (const [th, depth] of [[0.55, 34], [3.9, 22]]) {
+    const ro = radiusAt(R_OUTER + 2, th), ri = ro - depth;
+    const w = 0.035;
+    svgEl("path", {
+      class: "crack",
+      d: `M ${ro * Math.cos(th - w)} ${ro * Math.sin(th - w)} L ${ri * Math.cos(th)} ${ri * Math.sin(th)} L ${ro * Math.cos(th + w)} ${ro * Math.sin(th + w)} Z`,
+    });
+  }
+
+  svgEl("circle", { r: R_OUTER + 2, class: "grainlayer", filter: "url(#grain)" });
+  svgEl("circle", { r: R_PITH, class: "pithdisc" });
+
   // Label every fifth year; the readout names whichever ring is playing.
   for (let i = 0; i < RINGS; i++) {
     if ((treeData.startYear + i) % 5 !== 0) continue;
-    const t = document.createElementNS(NS, "text");
-    t.setAttribute("class", "label");
-    t.setAttribute("y", -(edges[i] + edges[i + 1]) / 2 + 1.6);
-    t.textContent = treeData.startYear + i;
-    svg.append(t);
+    const mid = radiusAt((edges[i] + edges[i + 1]) / 2, -Math.PI / 2);
+    svgEl("text", { class: "label", y: -mid + 1.6 }).textContent = treeData.startYear + i;
   }
 }
 
@@ -347,8 +399,9 @@ function ringAt(evt) {
   pt.y = evt.clientY;
   const p = pt.matrixTransform(svg.getScreenCTM().inverse());
   const d = Math.hypot(p.x, p.y);
-  if (d < R_PITH || d > R_OUTER) return -1;
-  for (let i = 0; i < RINGS; i++) if (d < edges[i + 1]) return i;
+  const th = (Math.atan2(p.y, p.x) + 2 * Math.PI) % (2 * Math.PI);
+  if (d < R_PITH || d > radiusAt(R_OUTER, th)) return -1;
+  for (let i = 0; i < RINGS; i++) if (d < radiusAt(edges[i + 1], th)) return i;
   return RINGS - 1;
 }
 
