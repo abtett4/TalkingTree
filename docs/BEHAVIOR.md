@@ -26,6 +26,8 @@ Defaults are the 2019 patch's startup values.
 | speed ("Jump every") | 40 to 1000 ms, log | 213 | Speed slider (16), metro interval; 2019 range 100 to 1000 |
 | speedSpread | 0 to 4 octaves | 2.5 | was a linear 0.5 to 1.5x |
 | brightSpread | 0 to 8 octaves | 6.9 | was a linear 50 to 10000 Hz |
+| dryBrightSpread | 0 to 8 octaves | 5 | new; 2019 filtered only the delay |
+| loudSpread | 0 to 24 dB | 12 | new |
 | jump | 0 to 100 % of the file | 35 | `drunk` step, 10% in 2019; raised so playback roams more |
 | loopLength | 40 to 1000 ms, log | 1000 | second slider, loop end offset. 2019 ran 50 to 3000 (default 2373), always longer than the jump interval, so it never audibly repeated. Now it shares the speed range: below "Jump every" it repeats, at or above it does not |
 | echoMin, echoMax | 0 to 0.95 | 0.15, 0.6 | feedback range; the year picks a value in it (see Memory below). 2019 had one feedback dial (0.68) |
@@ -43,6 +45,8 @@ Defaults are the 2019 patch's startup values.
    - Let `n` = `v` mapped from dataMin..dataMax to -0.5..+0.5, clipped (0 = the middle of the data's range).
    - Playback rate = 2^(speedSpread × n): 1x in the middle, and the slowest to fastest years span `speedSpread` octaves.
    - Filter cutoff = 1100 Hz × 2^(brightSpread × n) (lowpass, Q about 0.7): with the defaults, about 100 Hz to 12 kHz.
+   - Dry brightness: a second lowpass on the dry signal, cutoff = 3000 Hz × 2^(dryBrightSpread × n), about 530 Hz to 17 kHz.
+   - Loudness: the whole sound (dry and into the delay) is raised or lowered by loudSpread × n dB, so ±6 dB by default.
    - **Memory:** feedback = echoMin + (echoMax - echoMin) × the previous-5-year average growth, scaled across the
      data's range of those averages. After a run of good years the echoes last longer. (The first year has no previous
      years and uses its own value.) These averages come only from the data, never from how the person touches.
@@ -86,4 +90,5 @@ source is attributed. With the full record, widen dataMin/dataMax to about 0.27 
 | 5 rings, years 1990 to 1994 | 18 on-screen rings, 1990 to 2007, widths following growth; mapping range set from the data |
 | Linear 0.5 to 1.5x rate, 50 to 10000 Hz cutoff | Octave mapping with spread settings (defaults about 0.42 to 2.4x and 100 Hz to 12 kHz) |
 | Sound chosen by hand in the patch | The year picks it: leaf2 above average, log3 below |
+| Only the delay was filtered; every year was equally loud | The dry sound is filtered too, and good years are louder (±6 dB) |
 | One fixed feedback amount | Feedback follows the previous-5-year average |

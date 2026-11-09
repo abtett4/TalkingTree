@@ -4,6 +4,7 @@ let RINGS = 0; // one ring per year in data/treedata.json, set at load
 const SENSOR_RINGS = 5; // rings on the physical tree; they play the first five years
 const FRAME_MS = 66; // the Arduino sketch prints roughly every 60-80 ms
 const POINTER_STRENGTH = 1400;
+const DRY_CUTOFF_CENTER_HZ = 3000; // dry-signal cutoff for a year in the middle of the data's range
 const CUTOFF_CENTER_HZ = 1100; // delay filter cutoff for a year in the middle of the data's range
 const XFADE_S = 0.005; // crossfade when the playhead jumps into a new loop window
 const QUIET_DB = -60; // waveform view: output below this counts as dead air
@@ -21,6 +22,8 @@ const PARAMS = [
   { id: "loopLength", label: "Loop length", min: 40, max: 1000, log: true, value: 1000, unit: "ms" },
   { id: "speedSpread", label: "Speed spread", min: 0, max: 4, step: 0.1, value: 2.5, unit: "oct" },
   { id: "brightSpread", label: "Brightness spread", min: 0, max: 8, step: 0.1, value: 6.9, unit: "oct" },
+  { id: "dryBrightSpread", label: "Dry brightness spread", min: 0, max: 8, step: 0.1, value: 5, unit: "oct" },
+  { id: "loudSpread", label: "Loudness spread", min: 0, max: 24, step: 0.5, value: 12, unit: "dB" },
   { id: "jump", label: "Jump distance", min: 0, max: 100, step: 1, value: 35, unit: "%" },
   { id: "dryGain", label: "Dry level", min: -48, max: 12, step: 0.5, value: -6, unit: "dB" },
   { id: "delayGain", label: "Delay level", min: -48, max: 12, step: 0.5, value: -22, unit: "dB" },
@@ -68,6 +71,8 @@ class Engine {
     this.pos = 0;
     this.ring = -1;
     this.cutoff = 10000;
+    this.dryCutoff = 18000;
+    this.yearDb = 0;
     this.feedback = 0.68;
     this.memory = []; // per year: average growth of the previous MEMORY_YEARS years
     this.mean = 1;
@@ -78,6 +83,13 @@ class Engine {
     this.delayMs = 100;
 
     this.dry = ctx.createGain();
+    // Per-year loudness and dry-signal brightness, so neighbouring years sound clearly different.
+    // (2019 only filtered the delay, which sits well below the dry sound.)
+    this.yearGain = ctx.createGain();
+    this.dryFilter = ctx.createBiquadFilter();
+    this.dryFilter.type = "lowpass";
+    this.dryFilter.Q.value = 0.707;
+    this.dryFilter.frequency.value = 18000;
     this.wet = ctx.createGain();
     this.delay = ctx.createDelay(5);
     this.fb = ctx.createGain();
@@ -94,6 +106,8 @@ class Engine {
     this.out.connect(ctx.destination);
     this.delay.connect(this.wet).connect(this.filter).connect(this.out);
     this.dry.connect(this.out);
+    this.yearGain.connect(this.dryFilter).connect(this.dry);
+    this.yearGain.connect(this.delay);
     this.applyLevels();
   }
   applyLevels() {
@@ -143,6 +157,10 @@ class Engine {
         const n = scaleClip(g, this.p.dataMin, this.p.dataMax, 0, 1) - 0.5;
         this.setRate(Math.pow(2, this.p.speedSpread * n)); // 1x at the middle of the data's range
         this.cutoff = clamp(CUTOFF_CENTER_HZ * Math.pow(2, this.p.brightSpread * n), 40, 16000);
+        this.dryCutoff = clamp(DRY_CUTOFF_CENTER_HZ * Math.pow(2, this.p.dryBrightSpread * n), 300, 18000);
+        this.yearDb = this.p.loudSpread * n; // good years louder, lean years quieter
+        this.dryFilter.frequency.setTargetAtTime(this.dryCutoff, this.ctx.currentTime, 0.01);
+        this.yearGain.gain.setTargetAtTime(dbToGain(this.yearDb), this.ctx.currentTime, 0.02);
         this.filter.frequency.setTargetAtTime(this.cutoff, this.ctx.currentTime, 0.01);
         // The delay is the tree's memory: after a run of good years the echoes last longer.
         const m = this.memory[this.p.yearOffset + i];
@@ -217,8 +235,7 @@ class Engine {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(1, t + XFADE_S);
     s.connect(g);
-    g.connect(this.dry);
-    g.connect(this.delay);
+    g.connect(this.yearGain);
     s.start(t, start);
     if (this.source) {
       const old = this.source, oldGain = this.voiceGain;
@@ -583,7 +600,7 @@ const waveform = {
     const year = engine.ring >= 0 && engine.rate > 0 ? yearFor(engine.ring) : "none";
     $("waveinfo").textContent =
       `${this.name}.mp3 (${fmt(dur)} s)  ·  playhead ${fmt(t)} s  ·  loop ${fmt(src.loopStart)} to ${fmt(src.loopEnd)} s\n` +
-      `ring: ${year}  ·  rate ${fmt(engine.rate)}x  ·  cutoff ${Math.round(engine.cutoff)} Hz  ·  delay ${Math.round(engine.delayMs)} ms  ·  echo ${fmt(engine.feedback)}  ·  output ${isFinite(this.levelDb) ? Math.round(this.levelDb) : "-inf"} dB`;
+      `ring: ${year}  ·  rate ${fmt(engine.rate)}x  ·  dry ${Math.round(engine.dryCutoff)} Hz ${engine.yearDb >= 0 ? "+" : ""}${fmt(engine.yearDb)} dB  ·  delay cutoff ${Math.round(engine.cutoff)} Hz  ·  delay ${Math.round(engine.delayMs)} ms  ·  echo ${fmt(engine.feedback)}  ·  output ${isFinite(this.levelDb) ? Math.round(this.levelDb) : "-inf"} dB`;
   },
 };
 
