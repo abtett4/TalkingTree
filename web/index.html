@@ -14,10 +14,20 @@
       <p class="lede">Each ring is a year of growth from a Colorado Ponderosa Pine. Touch and hold a ring to hear it: years of faster growth play faster and brighter.</p>
     </header>
 
-    <section class="stage">
-      <svg id="tree" viewBox="-110 -110 220 220" role="group" aria-label="Tree rings, innermost is the earliest year"></svg>
-      <p id="readout" class="readout" aria-live="polite">Press Start, then touch a ring.</p>
-    </section>
+    <div class="layout">
+      <section class="stage">
+        <svg id="tree" viewBox="-110 -110 220 220" role="group" aria-label="Tree rings, innermost is the earliest year"></svg>
+        <p id="readout" class="readout" aria-live="polite">Press Start, then touch a ring.</p>
+      </section>
+
+      <section class="wavepanel" aria-label="Waveform view">
+        <h2>Playback</h2>
+        <canvas id="wave" aria-label="Waveform of the current sound file, with the loop window and playhead"></canvas>
+        <div class="meterbar" title="Output level"><span id="meter"></span></div>
+        <pre id="waveinfo" class="waveinfo">Press Start to load a sound.</pre>
+        <p class="legend"><span class="swatch loop"></span>loop window <span class="swatch head"></span>playhead (grey when stopped) · the bar is output level; it turns red below -60 dB (dead air)</p>
+      </section>
+    </div>
 
     <section class="controls">
       <div class="buttons">

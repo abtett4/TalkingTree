@@ -2,6 +2,9 @@
 
 const RINGS = 5;
 const FRAME_MS = 66; // the Arduino sketch prints roughly every 60-80 ms
+const POINTER_STRENGTH = 1400;
+const QUIET_DB = -60; // waveform view: output below this counts as dead air
+const DELAY_DEADBAND_MS = 50; // ignore delay-time changes smaller than this (touch-strength wobble)
 
 // Defaults are the 2019 patch's loadbang values (see docs/BEHAVIOR.md).
 const PARAMS = [
@@ -41,6 +44,10 @@ class Engine {
     this.rate = 0;
     this.walk = 0;
     this.timer = null;
+    this.pos = 0;
+    this.ring = -1;
+    this.cutoff = 10000;
+    this.delayMs = 100;
 
     this.dry = ctx.createGain();
     this.wet = ctx.createGain();
@@ -52,8 +59,13 @@ class Engine {
     this.filter.frequency.value = 10000;
     this.delay.delayTime.value = 0.1;
     this.delay.connect(this.fb).connect(this.delay); // feedback taken before the filter, as in 2019
-    this.delay.connect(this.wet).connect(this.filter).connect(ctx.destination);
-    this.dry.connect(ctx.destination);
+    this.out = ctx.createGain();
+    this.analyser = ctx.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.out.connect(this.analyser);
+    this.out.connect(ctx.destination);
+    this.delay.connect(this.wet).connect(this.filter).connect(this.out);
+    this.dry.connect(this.out);
     this.applyLevels();
   }
   applyLevels() {
@@ -79,6 +91,7 @@ class Engine {
     s.start();
     this.source = s;
     this.walk = 0;
+    this.pos = 0;
     this.step();
   }
   async setTreeData(values) {
@@ -86,29 +99,52 @@ class Engine {
   }
   setRings(values) {
     const thr = this.p.threshold;
-    values.forEach((v, i) => {
-      const on = v >= thr;
-      if (on === this.touched[i]) return;
-      this.touched[i] = on;
-      // Quirk 1 kept: every ring writes the same rate and metro, so the last change wins.
-      if (on) {
-        const g = this.data[this.p.yearOffset + i];
-        if (g !== undefined) {
-          this.setRate(scaleClip(g, this.p.dataMin, this.p.dataMax, 0.5, 1.5));
-          this.filter.frequency.setTargetAtTime(scaleClip(g, this.p.dataMin, this.p.dataMax, 50, 10000), this.ctx.currentTime, 0.01);
-        }
-        this.startMetro();
-      } else {
-        this.setRate(0);
-        this.stopMetro(); // quirk 4 fixed: the interval is left alone
-      }
+    const changes = values.map((v, i) => ((v >= thr) === this.touched[i] ? null : v >= thr));
+    // Releases first, then new touches, so sliding from one ring to the next keeps playing in
+    // either direction. (2019 handled the five values right to left, so sliding outward went silent.)
+    changes.forEach((on, i) => {
+      if (on !== false) return;
+      this.touched[i] = false;
+      this.setRate(0);
+      this.stopMetro(); // quirk 4 fixed: the interval is left alone
     });
-    // Quirk 3 fixed: strongest held ring sets the delay time, smoothed.
+    // Quirk 1 kept: every ring writes the same rate and metro, so the newest touch wins.
+    changes.forEach((on, i) => {
+      if (on !== true) return;
+      this.touched[i] = true;
+      this.ring = i;
+      const g = this.data[this.p.yearOffset + i];
+      if (g !== undefined) {
+        this.setRate(scaleClip(g, this.p.dataMin, this.p.dataMax, 0.5, 1.5));
+        this.cutoff = scaleClip(g, this.p.dataMin, this.p.dataMax, 50, 10000);
+        this.filter.frequency.setTargetAtTime(this.cutoff, this.ctx.currentTime, 0.01);
+      }
+      this.startMetro();
+    });
+    // Quirk 3 fixed: strongest held ring sets the delay time. Small wobbles in touch strength are
+    // ignored and real changes glide slowly: a delay time that keeps moving under feedback bends
+    // the pitch of everything in the delay line, which sounds like bubbling.
     const held = values.filter((v) => v >= thr);
     if (held.length) {
       const ms = scaleClip(Math.max(...held), thr, 2000, 100, 1000);
-      this.delay.delayTime.setTargetAtTime(ms / 1000, this.ctx.currentTime, 0.03);
+      if (Math.abs(ms - this.delayMs) >= DELAY_DEADBAND_MS) {
+        this.delayMs = ms;
+        this.delay.delayTime.setTargetAtTime(ms / 1000, this.ctx.currentTime, 0.15);
+      }
     }
+  }
+  // Where the playhead is (seconds), estimated from the rate and loop points, for the waveform view.
+  playhead() {
+    const now = this.ctx.currentTime;
+    const dt = now - (this.lastT ?? now);
+    this.lastT = now;
+    if (!this.buffer || !this.source) return 0;
+    let pos = this.pos + this.rate * dt;
+    const { loopStart: a, loopEnd: b } = this.source;
+    if (pos >= b && b > a) pos = a + ((pos - b) % (b - a));
+    if (pos >= this.buffer.duration) pos = 0;
+    this.pos = pos;
+    return pos;
   }
   setRate(r) {
     this.rate = r;
@@ -150,6 +186,7 @@ async function loadSample(name) {
     sampleCache.set(name, await ctx.decodeAudioData(await res.arrayBuffer()));
   }
   await engine.setSample(sampleCache.get(name));
+  waveform.setBuffer(sampleCache.get(name), name);
 }
 
 // ---------------------------------------------------------------- tree drawing and touch
@@ -211,13 +248,11 @@ function ringAt(evt) {
   return Math.min(RINGS - 1, Math.floor((d - R_PITH) / bandWidth));
 }
 
-// A held ring ramps from a light touch to a firm one over ~2 s, like squeezing the real sensor.
+// Mouse and touch press with a steady, medium-firm strength (delay time about 640 ms).
 let pointerRing = -1;
-let pointerDown = 0;
 svg.addEventListener("pointerdown", (e) => {
   if (!engine) return;
   pointerRing = ringAt(e);
-  pointerDown = performance.now();
   svg.setPointerCapture(e.pointerId);
 });
 svg.addEventListener("pointermove", (e) => {
@@ -225,7 +260,6 @@ svg.addEventListener("pointermove", (e) => {
   const r = ringAt(e);
   if (r >= 0 && r !== pointerRing) {
     pointerRing = r;
-    pointerDown = performance.now();
   }
 });
 const release = () => (pointerRing = -1);
@@ -235,27 +269,20 @@ svg.addEventListener("pointercancel", release);
 function updatePointer() {
   sources.pointer.fill(0);
   if (pointerRing >= 0) {
-    const held = (performance.now() - pointerDown) / 2000;
-    sources.pointer[pointerRing] = Math.round(700 + Math.min(1, held) * 1300);
+    sources.pointer[pointerRing] = POINTER_STRENGTH;
   }
 }
 
 // ---------------------------------------------------------------- demo mode
 
 let demoTimer = null;
-let demoRamp = null;
 function startDemo() {
   const next = () => {
     sources.demo.fill(0);
     const ring = Math.floor(Math.random() * RINGS);
     const hold = 1200 + Math.random() * 2500;
-    const t0 = performance.now();
-    demoRamp = setInterval(() => {
-      const k = Math.min(1, (performance.now() - t0) / hold);
-      sources.demo[ring] = Math.round(650 + Math.sin(k * Math.PI) * 1300);
-    }, FRAME_MS);
+    sources.demo[ring] = Math.round(700 + Math.random() * 1300);
     demoTimer = setTimeout(() => {
-      clearInterval(demoRamp);
       sources.demo.fill(0);
       demoTimer = setTimeout(next, 400 + Math.random() * 1600);
     }, hold);
@@ -263,7 +290,6 @@ function startDemo() {
   next();
 }
 function stopDemo() {
-  clearInterval(demoRamp);
   clearTimeout(demoTimer);
   demoTimer = null;
   sources.demo.fill(0);
@@ -300,6 +326,103 @@ async function connectSerial() {
     $("serial").textContent = "Connect Arduino";
     $("serial").disabled = false;
   }
+}
+
+
+// ---------------------------------------------------------------- waveform view (debugging)
+
+// Shows the current sound file, the wandering loop window, the playhead, and the output level,
+// so quiet stretches ("dead air") can be matched to the part of the file being played.
+const waveform = {
+  canvas: $("wave"),
+  peaks: null,
+  buffer: null,
+  name: "",
+  levelDb: -Infinity,
+  setBuffer(buffer, name) {
+    this.buffer = buffer;
+    this.name = name;
+    this.peaks = null;
+  },
+  computePeaks(width) {
+    const data = this.buffer.getChannelData(0); // channel 1 only, as played
+    const per = Math.max(1, Math.floor(data.length / width));
+    const peaks = new Float32Array(width * 2);
+    for (let x = 0; x < width; x++) {
+      let lo = 1, hi = -1;
+      const end = Math.min(data.length, (x + 1) * per);
+      for (let j = x * per; j < end; j++) {
+        const v = data[j];
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+      peaks[2 * x] = lo;
+      peaks[2 * x + 1] = hi;
+    }
+    this.peaks = peaks;
+    this.peakWidth = width;
+  },
+  draw() {
+    const c = this.canvas;
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round(c.clientWidth * dpr);
+    const h = Math.round(c.clientHeight * dpr);
+    if (c.width !== w || c.height !== h) {
+      c.width = w;
+      c.height = h;
+      this.peaks = null;
+    }
+    const g = c.getContext("2d");
+    const css = getComputedStyle(document.documentElement);
+    const col = (name) => css.getPropertyValue(name).trim();
+    g.clearRect(0, 0, w, h);
+    if (!this.buffer || !engine?.source) return;
+    if (!this.peaks || this.peakWidth !== w) this.computePeaks(w);
+    const dur = this.buffer.duration;
+    const toX = (t) => (t / dur) * w;
+    const src = engine.source;
+
+    // Loop window
+    g.fillStyle = col("--loop");
+    const x0 = toX(src.loopStart);
+    g.fillRect(x0, 0, Math.max(1, toX(src.loopEnd) - x0), h);
+
+    // Waveform
+    g.fillStyle = col("--wave");
+    const mid = h / 2;
+    for (let x = 0; x < w; x++) {
+      const lo = this.peaks[2 * x], hi = this.peaks[2 * x + 1];
+      g.fillRect(x, mid - hi * mid, 1, Math.max(1, (hi - lo) * mid));
+    }
+
+    // Playhead
+    const t = engine.playhead();
+    g.fillStyle = engine.rate > 0 ? col("--glow") : col("--muted");
+    g.fillRect(toX(t) - dpr, 0, 2 * dpr, h);
+
+    // Output level from the analyser (RMS, dBFS)
+    const a = engine.analyser;
+    const buf = this.levelBuf || (this.levelBuf = new Float32Array(a.fftSize));
+    a.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (const v of buf) sum += v * v;
+    const db = 10 * Math.log10(sum / buf.length + 1e-12);
+    this.levelDb = Math.max(db, this.levelDb - 1.5); // fall back slowly so it can be read
+    const meter = $("meter");
+    meter.style.width = `${clamp((this.levelDb + 80) / 80, 0, 1) * 100}%`;
+    meter.classList.toggle("quiet", this.levelDb < QUIET_DB);
+
+    const fmt = (x) => x.toFixed(2);
+    const year = engine.ring >= 0 && engine.rate > 0 ? yearFor(engine.ring) : "none";
+    $("waveinfo").textContent =
+      `${this.name}.mp3 (${fmt(dur)} s)  ·  playhead ${fmt(t)} s  ·  loop ${fmt(src.loopStart)} to ${fmt(src.loopEnd)} s\n` +
+      `ring: ${year}  ·  rate ${fmt(engine.rate)}x  ·  cutoff ${Math.round(engine.cutoff)} Hz  ·  delay ${Math.round(engine.delayMs)} ms  ·  output ${isFinite(this.levelDb) ? Math.round(this.levelDb) : "-inf"} dB`;
+  },
+};
+
+function animate() {
+  waveform.draw();
+  requestAnimationFrame(animate);
 }
 
 // ---------------------------------------------------------------- main loop and UI
@@ -358,6 +481,7 @@ $("start").addEventListener("click", async () => {
     await loadSample($("sound").value);
     labelRings();
     setInterval(frame, FRAME_MS);
+    requestAnimationFrame(animate);
     $("start").textContent = "Running";
     $("demo").disabled = false;
     $("sound").disabled = false;

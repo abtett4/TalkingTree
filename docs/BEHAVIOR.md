@@ -40,10 +40,14 @@ Defaults are the 2019 patch's startup values.
    - Filter cutoff = `v` mapped from dataMin..dataMax to 50..10000 Hz, clipped (lowpass, Q about 0.7).
    - Start the wander clock.
 3. **Touch ends.** Playback rate 0 (silence) and stop the wander clock. The clock's interval is left alone.
-4. **One ring at a time (kept on purpose).** All rings write the same rate and clock, so the last ring to change wins.
+4. **One ring at a time (kept on purpose).** All rings write the same rate and clock, so the newest touch wins.
    Releasing any ring silences the sound even if another is still held. The piece reads more clearly this way.
-5. **Delay time.** Over all rings at or above threshold, take the strongest value, map threshold..2000 to 100..1000 ms
-   (clipped) and glide to it over about 80 ms. With nothing held, the last time stays.
+   When several rings change in the same reading, handle the releases first and then the new touches, so sliding
+   from one ring to the next keeps playing in either direction. (2019 handled the five values right to left, so
+   sliding inward kept playing but sliding outward went silent.)
+5. **Delay time.** Over all rings at or above threshold, take the strongest value and map threshold..2000 to 100..1000 ms
+   (clipped). Ignore changes under 50 ms and glide slowly (about 0.5 s) to real ones: a delay time that keeps moving under
+   feedback bends the pitch of the whole delay line, which sounds like bubbling. With nothing held, the last time stays.
 6. **Wander.** Each clock tick (every `speed` ms) moves a random walk over the file length, with a maximum step of
    10% of the file length. Loop start = walk position; loop end = start + `loopLength` (capped at the file end).
 7. **Signal path.** The sample player loops continuously, playing channel 1 only, as `groove~` did.
@@ -61,7 +65,8 @@ source is attributed. With the full record, widen dataMin/dataMax to about 0.27 
 
 | 2019 behaviour | Now |
 | --- | --- |
-| Delay time jumped between held rings | Strongest held ring, smoothed |
+| Delay time jumped between held rings | Strongest held ring, with a dead band and a slow glide |
+| Sliding outward between rings went silent | Releases handled before new touches, so both directions keep playing |
 | Release set the clock interval to 0 | Release only stops the clock |
 | Threshold hardcoded in several places | One `threshold` parameter |
 | Sound chosen by hand in the patch | Chosen by the user; leaf2 by default |

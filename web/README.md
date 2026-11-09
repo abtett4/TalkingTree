@@ -19,10 +19,16 @@ Then open http://localhost:8000.
 
 ## Inputs
 
-- **Mouse or touch:** press and hold a ring. Holding longer acts like a firmer touch (700 up to 2000), which lengthens the delay.
+- **Mouse or touch:** press and hold a ring, or slide between rings. Presses use a steady medium strength (1400, about a 640 ms delay).
 - **Arduino:** "Connect Arduino" uses Web Serial (Chrome or Edge, desktop). It reads the unchanged 2019 sketch
   (`TalkingTreeScript.ino`) at 9600 baud.
 - **Demo:** plays random touches, one ring at a time.
+
+## Playback view
+
+The panel next to the tree is for debugging. It shows the current file's waveform (channel 1, as played), the wandering loop window,
+an estimated playhead, an output level bar that turns red below -60 dB, and the live rate, cutoff and delay time. Use it to match
+stretches of dead air to the part of the file being played.
 
 ## Files
 
