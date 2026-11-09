@@ -84,7 +84,23 @@ h1 { margin: 0 0 4px; font-size: 2rem; letter-spacing: -0.01em; }
   margin: 24px 0 16px;
 }
 @media (max-width: 760px) { .layout { grid-template-columns: minmax(0, 1fr); } }
-.stage { text-align: center; }
+.stage { display: flex; flex-direction: column; align-items: center; text-align: center; }
+/* With the data table open the side column gets tall, so the readout moves above the tree. */
+body.table-open .readout { order: -1; margin: 0 0 8px; }
+body.table-open .layout { align-items: start; }
+.treewrap { position: relative; width: min(100%, 420px); }
+.pith {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 18.2%; /* the pith's diameter: 2 x 20 of the 220-unit viewBox */
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: 50%;
+  font-size: clamp(0.7rem, 2.6vw, 0.95rem);
+  line-height: 1.1;
+}
 .wavepanel h2 { margin: 0 0 8px; font-size: 1rem; color: var(--muted); font-weight: 600; }
 #wave {
   display: block;
@@ -109,7 +125,8 @@ h1 { margin: 0 0 4px; font-size: 2rem; letter-spacing: -0.01em; }
 .swatch.loop { background: var(--loop); border: 1px solid var(--glow); }
 .swatch.head { background: var(--glow); }
 #tree {
-  width: min(100%, 420px);
+  display: block;
+  width: 100%;
   aspect-ratio: 1;
   touch-action: none;
   user-select: none;

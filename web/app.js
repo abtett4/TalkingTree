@@ -269,7 +269,7 @@ async function chooseSound(value) {
 
 const svg = $("tree");
 const NS = "http://www.w3.org/2000/svg";
-const R_PITH = 14;
+const R_PITH = 20; // leaves room for the Start button in the middle
 const R_OUTER = 104;
 const lights = [];
 let edges = []; // edges[i]..edges[i+1] = radius range of ring i
@@ -658,7 +658,18 @@ function status(msg) {
   $("status").textContent = msg;
 }
 
+// The button in the middle of the tree starts the piece, then pauses and resumes it.
 $("start").addEventListener("click", async () => {
+  if (engine) {
+    if (ctx.state === "running") {
+      await ctx.suspend();
+      $("start").textContent = "Resume";
+    } else {
+      await ctx.resume();
+      $("start").textContent = "Pause";
+    }
+    return;
+  }
   $("start").disabled = true;
   status("Loading…");
   try {
@@ -676,7 +687,8 @@ $("start").addEventListener("click", async () => {
     await chooseSound($("sound").value);
     setInterval(frame, FRAME_MS);
     requestAnimationFrame(animate);
-    $("start").textContent = "Running";
+    $("start").textContent = "Pause";
+    $("start").disabled = false;
     $("demo").disabled = false;
     $("sound").disabled = false;
     if ("serial" in navigator) {
@@ -688,6 +700,7 @@ $("start").addEventListener("click", async () => {
   } catch (err) {
     console.error(err);
     status(`Could not start: ${err.message}`);
+    engine = null;
     $("start").disabled = false;
   }
 });
@@ -704,6 +717,7 @@ $("sound").addEventListener("change", () => chooseSound($("sound").value).catch(
 
 buildParams();
 if (DEBUG) document.body.classList.add("debug");
+document.querySelector(".datatable").addEventListener("toggle", (e) => document.body.classList.toggle("table-open", e.target.open));
 loadTreeData()
   .then(() => {
     drawTree();
