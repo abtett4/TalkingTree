@@ -136,7 +136,7 @@ summary { cursor: pointer; color: var(--muted); }
 .params { display: grid; gap: 10px; margin-top: 10px; }
 .params label { display: grid; grid-template-columns: 9em 1fr 4.5em; align-items: center; gap: 8px; font-size: 0.9rem; }
 .params output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
-.params input { width: 100%; }
+.params input { width: 100%; accent-color: var(--accent); }
 .status { margin: 12px 0 0; font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
 footer { margin-top: 32px; font-size: 0.85rem; color: var(--muted); }
 
@@ -144,3 +144,4 @@ footer { margin-top: 32px; font-size: 0.85rem; color: var(--muted); }
   .params label { grid-template-columns: 1fr 4em; }
   .params label input { grid-column: 1 / -1; grid-row: 2; }
 }
+.params .reset { justify-self: start; font-size: 0.85rem; padding: 6px 12px; }

@@ -9,13 +9,15 @@ const QUIET_DB = -60; // waveform view: output below this counts as dead air
 const DELAY_DEADBAND_MS = 50; // ignore delay-time changes smaller than this (touch-strength wobble)
 
 // Defaults are the 2019 patch's loadbang values (see docs/BEHAVIOR.md).
+// Slider ranges were retuned in 2026 so they work together: the two timing sliders share one
+// range and a log scale (equal travel = equal ratio), and both level sliders share one dB range.
 const PARAMS = [
-  { id: "speed", label: "Wander speed", min: 100, max: 1000, step: 1, value: 213, unit: "ms" },
-  { id: "jump", label: "Jump distance", min: 1, max: 100, step: 1, value: 35, unit: "%" },
-  { id: "loopLength", label: "Loop length", min: 50, max: 3000, step: 1, value: 2373, unit: "ms" },
-  { id: "feedback", label: "Feedback", min: 0, max: 0.99, step: 0.01, value: 0.678, unit: "" },
-  { id: "dryGain", label: "Dry level", min: -70, max: 6, step: 0.5, value: -6, unit: "dB" },
-  { id: "delayGain", label: "Delay level", min: -70, max: 6, step: 0.5, value: -22, unit: "dB" },
+  { id: "speed", label: "Jump every", min: 40, max: 1000, log: true, value: 213, unit: "ms" },
+  { id: "loopLength", label: "Loop length", min: 40, max: 1000, log: true, value: 1000, unit: "ms" },
+  { id: "jump", label: "Jump distance", min: 0, max: 100, step: 1, value: 35, unit: "%" },
+  { id: "dryGain", label: "Dry level", min: -48, max: 12, step: 0.5, value: -6, unit: "dB" },
+  { id: "delayGain", label: "Delay level", min: -48, max: 12, step: 0.5, value: -22, unit: "dB" },
+  { id: "feedback", label: "Feedback", min: 0, max: 0.95, step: 0.01, value: 0.68, unit: "" },
   { id: "threshold", label: "Touch threshold", min: 0, max: 2000, step: 1, value: 500, unit: "" },
 ];
 // Not shown as sliders. Ring N plays data year yearOffset + N - 1; dataMin/dataMax is the 2019 mapping range.
@@ -482,24 +484,42 @@ function frame() {
 
 const paramInputs = {};
 function paramValue(id) {
-  return paramInputs[id] ? +paramInputs[id].value : HIDDEN[id];
+  return paramInputs[id] ? paramInputs[id].read() : HIDDEN[id];
 }
 function buildParams() {
   for (const p of PARAMS) {
     const label = document.createElement("label");
     label.textContent = p.label;
-    const input = Object.assign(document.createElement("input"), { type: "range", min: p.min, max: p.max, step: p.step, value: p.value });
+    // Log sliders run 0..1000 internally and map to min..max exponentially.
+    const toValue = (pos) => (p.log ? Math.round(p.min * Math.pow(p.max / p.min, pos / 1000)) : pos);
+    const toPos = (v) => (p.log ? (1000 * Math.log(v / p.min)) / Math.log(p.max / p.min) : v);
+    const input = p.log
+      ? Object.assign(document.createElement("input"), { type: "range", min: 0, max: 1000, step: 1 })
+      : Object.assign(document.createElement("input"), { type: "range", min: p.min, max: p.max, step: p.step });
+    input.read = () => toValue(+input.value);
+    input.reset = () => {
+      input.value = toPos(p.value);
+      show();
+      engine?.setParam(p.id, input.read());
+    };
     const out = document.createElement("output");
-    const show = () => (out.textContent = `${+(+input.value).toFixed(p.step < 1 ? 2 : 0)}${p.unit ? " " + p.unit : ""}`);
+    const show = () => {
+      const v = input.read();
+      out.textContent = `${+v.toFixed(p.step < 1 ? 2 : 0)}${p.unit ? " " + p.unit : ""}`;
+    };
     input.addEventListener("input", () => {
       show();
-      engine?.setParam(p.id, +input.value);
+      engine?.setParam(p.id, input.read());
     });
+    input.value = toPos(p.value);
     show();
     label.append(input, out);
     $("params").append(label);
     paramInputs[p.id] = input;
   }
+  const reset = Object.assign(document.createElement("button"), { type: "button", textContent: "Reset to defaults", className: "reset" });
+  reset.addEventListener("click", () => Object.values(paramInputs).forEach((i) => i.reset()));
+  $("params").append(reset);
 }
 
 function status(msg) {

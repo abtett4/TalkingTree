@@ -23,12 +23,12 @@ Defaults are the 2019 patch's startup values.
 | Name | Range | Default | 2019 source |
 | --- | --- | --- | --- |
 | threshold | 0 to 2000 | 500 | `>= 500` everywhere |
-| speed | 100 to 1000 ms | 213 | Speed slider (16), metro interval |
-| jump | 1 to 100 % of the file | 35 | `drunk` step, 10% in 2019; raised so playback roams more |
-| loopLength | 50 to 3000 ms | 2373 | second slider (100), loop end offset |
-| feedback | 0 to 0.99 | 0.678 | dial (87) scaled 0 to 0.99 |
-| dryGain | dB | -6 | dry `gain~` (115); calibrate by ear |
-| delayGain | dB | -22 | delay `gain~` (99); set by ear in 2026 |
+| speed ("Jump every") | 40 to 1000 ms, log | 213 | Speed slider (16), metro interval; 2019 range 100 to 1000 |
+| jump | 0 to 100 % of the file | 35 | `drunk` step, 10% in 2019; raised so playback roams more |
+| loopLength | 40 to 1000 ms, log | 1000 | second slider, loop end offset. 2019 ran 50 to 3000 (default 2373), always longer than the jump interval, so it never audibly repeated. Now it shares the speed range: below "Jump every" it repeats, at or above it does not |
+| feedback | 0 to 0.95 | 0.68 | dial (87) scaled 0 to 0.99 |
+| dryGain | -48 to +12 dB | -6 | dry `gain~` (115) |
+| delayGain | -48 to +12 dB | -22 | delay `gain~` (99); set by ear in 2026 |
 | dataMin, dataMax | | min and max of the loaded data (0.37, 1.44 for 1990 to 2007) | 2019 used 0.85, 1.2, which only fit its five years |
 | yearOffset | index | 0 | ring N reads data value `yearOffset + N - 1` |
 | sound | 6 files | leaf2 | file message boxes; leaf2.wav at load |
