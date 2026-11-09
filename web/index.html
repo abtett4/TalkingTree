@@ -21,6 +21,7 @@
           <svg id="tree" viewBox="-110 -110 220 220" role="group" aria-label="Tree rings, innermost is the earliest year"></svg>
           <button id="start" class="primary pith">Start</button>
         </div>
+        <p id="status" class="status"></p>
       </section>
 
       <div class="side">
@@ -51,13 +52,13 @@
       </div>
     </div>
 
-    <section class="controls">
+    <section class="controls debug-only">
       <div class="buttons">
         <button id="demo" disabled aria-pressed="false">Demo</button>
         <button id="serial" disabled hidden>Connect Arduino</button>
       </div>
 
-      <label class="field debug-only">Sound
+      <label class="field">Sound
         <select id="sound" disabled>
           <option value="auto" selected>By year (leaves or log)</option>
           <option value="leaf1">Leaves 1</option>
@@ -69,12 +70,11 @@
         </select>
       </label>
 
-      <details class="debug-only">
+      <details>
         <summary>Sound settings</summary>
         <div id="params" class="params"></div>
       </details>
 
-      <p id="status" class="status"></p>
     </section>
 
     <footer>
