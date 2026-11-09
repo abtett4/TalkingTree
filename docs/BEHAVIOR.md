@@ -24,6 +24,8 @@ Defaults are the 2019 patch's startup values.
 | --- | --- | --- | --- |
 | threshold | 0 to 2000 | 500 | `>= 500` everywhere |
 | speed ("Jump every") | 40 to 1000 ms, log | 213 | Speed slider (16), metro interval; 2019 range 100 to 1000 |
+| speedSpread | 0 to 4 octaves | 2.5 | was a linear 0.5 to 1.5x |
+| brightSpread | 0 to 8 octaves | 6.9 | was a linear 50 to 10000 Hz |
 | jump | 0 to 100 % of the file | 35 | `drunk` step, 10% in 2019; raised so playback roams more |
 | loopLength | 40 to 1000 ms, log | 1000 | second slider, loop end offset. 2019 ran 50 to 3000 (default 2373), always longer than the jump interval, so it never audibly repeated. Now it shares the speed range: below "Jump every" it repeats, at or above it does not |
 | feedback | 0 to 0.95 | 0.68 | dial (87) scaled 0 to 0.99 |
@@ -38,8 +40,10 @@ Defaults are the 2019 patch's startup values.
 1. **Touch.** A ring is touched while its value is at or above `threshold`. Only changes of touched state matter.
 2. **Touch starts.** Look up the ring's growth value `v`. There is one ring per year of data (18 rings, 1990 to 2007).
    The physical tree's five sensors play the first five years (1990 to 1994), as in 2019.
-   - Playback rate = `v` mapped from dataMin..dataMax to 0.5..1.5, clipped.
-   - Filter cutoff = `v` mapped from dataMin..dataMax to 50..10000 Hz, clipped (lowpass, Q about 0.7).
+   - Let `n` = `v` mapped from dataMin..dataMax to -0.5..+0.5, clipped (0 = the middle of the data's range).
+   - Playback rate = 2^(speedSpread × n): 1x in the middle, and the slowest to fastest years span `speedSpread` octaves.
+   - Filter cutoff = 1100 Hz × 2^(brightSpread × n) (lowpass, Q about 0.7): with the defaults, about 100 Hz to 12 kHz.
+   - 2019 mapped linearly to 0.5..1.5x and 50..10000 Hz. Octave mapping makes each step in growth sound like an equal step.
    - Start the wander clock.
 3. **Touch ends.** Playback rate 0 (silence) and stop the wander clock. The clock's interval is left alone.
 4. **One ring at a time (kept on purpose).** All rings write the same rate and clock, so the newest touch wins.
@@ -76,4 +80,5 @@ source is attributed. With the full record, widen dataMin/dataMax to about 0.27 
 | Threshold hardcoded in several places | One `threshold` parameter |
 | Random walk moved at most 10% of the file and stuck at the ends | `jump` setting (default 35%), wraps around the ends |
 | 5 rings, years 1990 to 1994 | 18 on-screen rings, 1990 to 2007, widths following growth; mapping range set from the data |
+| Linear 0.5 to 1.5x rate, 50 to 10000 Hz cutoff | Octave mapping with spread settings (defaults about 0.42 to 2.4x and 100 Hz to 12 kHz) |
 | Sound chosen by hand in the patch | Chosen by the user; leaf2 by default |

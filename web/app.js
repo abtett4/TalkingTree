@@ -4,6 +4,7 @@ let RINGS = 0; // one ring per year in data/treedata.json, set at load
 const SENSOR_RINGS = 5; // rings on the physical tree; they play the first five years
 const FRAME_MS = 66; // the Arduino sketch prints roughly every 60-80 ms
 const POINTER_STRENGTH = 1400;
+const CUTOFF_CENTER_HZ = 1100; // delay filter cutoff for a year in the middle of the data's range
 const XFADE_S = 0.005; // crossfade when the playhead jumps into a new loop window
 const QUIET_DB = -60; // waveform view: output below this counts as dead air
 const DELAY_DEADBAND_MS = 50; // ignore delay-time changes smaller than this (touch-strength wobble)
@@ -14,6 +15,8 @@ const DELAY_DEADBAND_MS = 50; // ignore delay-time changes smaller than this (to
 const PARAMS = [
   { id: "speed", label: "Jump every", min: 40, max: 1000, log: true, value: 213, unit: "ms" },
   { id: "loopLength", label: "Loop length", min: 40, max: 1000, log: true, value: 1000, unit: "ms" },
+  { id: "speedSpread", label: "Speed spread", min: 0, max: 4, step: 0.1, value: 2.5, unit: "oct" },
+  { id: "brightSpread", label: "Brightness spread", min: 0, max: 8, step: 0.1, value: 6.9, unit: "oct" },
   { id: "jump", label: "Jump distance", min: 0, max: 100, step: 1, value: 35, unit: "%" },
   { id: "dryGain", label: "Dry level", min: -48, max: 12, step: 0.5, value: -6, unit: "dB" },
   { id: "delayGain", label: "Delay level", min: -48, max: 12, step: 0.5, value: -22, unit: "dB" },
@@ -110,8 +113,11 @@ class Engine {
       this.ring = i;
       const g = this.data[this.p.yearOffset + i];
       if (g !== undefined) {
-        this.setRate(scaleClip(g, this.p.dataMin, this.p.dataMax, 0.5, 1.5));
-        this.cutoff = scaleClip(g, this.p.dataMin, this.p.dataMax, 50, 10000);
+        // Map in octaves, not linearly, so equal steps in growth sound like equal steps in pitch and
+        // brightness. n = 0 for the slowest-growing year, 1 for the fastest, 0.5 in the middle.
+        const n = scaleClip(g, this.p.dataMin, this.p.dataMax, 0, 1) - 0.5;
+        this.setRate(Math.pow(2, this.p.speedSpread * n)); // 1x at the middle of the data's range
+        this.cutoff = clamp(CUTOFF_CENTER_HZ * Math.pow(2, this.p.brightSpread * n), 40, 16000);
         this.filter.frequency.setTargetAtTime(this.cutoff, this.ctx.currentTime, 0.01);
       }
       this.startMetro();
