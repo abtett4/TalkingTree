@@ -10,10 +10,11 @@ const DELAY_DEADBAND_MS = 50; // ignore delay-time changes smaller than this (to
 // Defaults are the 2019 patch's loadbang values (see docs/BEHAVIOR.md).
 const PARAMS = [
   { id: "speed", label: "Wander speed", min: 100, max: 1000, step: 1, value: 213, unit: "ms" },
+  { id: "jump", label: "Jump distance", min: 1, max: 100, step: 1, value: 35, unit: "%" },
   { id: "loopLength", label: "Loop length", min: 50, max: 3000, step: 1, value: 2373, unit: "ms" },
   { id: "feedback", label: "Feedback", min: 0, max: 0.99, step: 0.01, value: 0.678, unit: "" },
   { id: "dryGain", label: "Dry level", min: -70, max: 6, step: 0.5, value: -6, unit: "dB" },
-  { id: "delayGain", label: "Delay level", min: -70, max: 6, step: 0.5, value: -10, unit: "dB" },
+  { id: "delayGain", label: "Delay level", min: -70, max: 6, step: 0.5, value: -22, unit: "dB" },
   { id: "threshold", label: "Touch threshold", min: 0, max: 2000, step: 1, value: 500, unit: "" },
 ];
 // Not shown as sliders. Ring N plays data year yearOffset + N - 1; dataMin/dataMax is the 2019 mapping range.
@@ -150,15 +151,16 @@ class Engine {
     clearInterval(this.timer);
     this.timer = null;
   }
-  // drunk over the file length, step = 10% of it, as 2019 wired from waveform~. Each tick the
+  // drunk over the file length (2019 used a step of 10% of the file; now the Jump distance slider). Each tick the
   // playhead jumps into the new loop window, as groove~ did in 2019: that is the choppy,
   // granular sound. A browser buffer source can't seek, so each tick starts a new one and
   // crossfades over a few ms to avoid clicks.
   step() {
     if (!this.buffer) return;
     const len = this.buffer.duration * 1000;
-    const maxStep = len * 0.1;
-    this.walk = clamp(this.walk + (Math.random() * 2 - 1) * maxStep, 0, len - 1);
+    // Max jump per tick as a share of the file. Wraps around the ends instead of sticking to them.
+    const maxStep = len * (this.p.jump / 100);
+    this.walk = (((this.walk + (Math.random() * 2 - 1) * maxStep) % len) + len) % len;
     const start = this.walk / 1000;
     const end = Math.max(Math.min(len, this.walk + this.p.loopLength) / 1000, start + 0.01);
 

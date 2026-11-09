@@ -24,10 +24,11 @@ Defaults are the 2019 patch's startup values.
 | --- | --- | --- | --- |
 | threshold | 0 to 2000 | 500 | `>= 500` everywhere |
 | speed | 100 to 1000 ms | 213 | Speed slider (16), metro interval |
+| jump | 1 to 100 % of the file | 35 | `drunk` step, 10% in 2019; raised so playback roams more |
 | loopLength | 50 to 3000 ms | 2373 | second slider (100), loop end offset |
 | feedback | 0 to 0.99 | 0.678 | dial (87) scaled 0 to 0.99 |
 | dryGain | dB | -6 | dry `gain~` (115); calibrate by ear |
-| delayGain | dB | -10 | delay `gain~` (99); calibrate by ear |
+| delayGain | dB | -22 | delay `gain~` (99); set by ear in 2026 |
 | dataMin, dataMax | | 0.85, 1.2 | input range of the `zmap`s on the growth value |
 | yearOffset | index | 0 | ring N reads data value `yearOffset + N - 1` |
 | sound | 6 files | leaf2 | file message boxes; leaf2.wav at load |
@@ -49,7 +50,7 @@ Defaults are the 2019 patch's startup values.
    (clipped). Ignore changes under 50 ms and glide slowly (about 0.5 s) to real ones: a delay time that keeps moving under
    feedback bends the pitch of the whole delay line, which sounds like bubbling. With nothing held, the last time stays.
 6. **Wander.** Each clock tick (every `speed` ms, plus one tick as soon as the clock starts) moves a random walk over
-   the file length, with a maximum step of 10% of the file length. Loop start = walk position; loop end = start +
+   the file length, with a maximum step of `jump` percent of the file length, wrapping around at the ends. Loop start = walk position; loop end = start +
    `loopLength` (capped at the file end). The playhead jumps to the new loop start on every tick, which gives the choppy,
    granular sound of the 2019 piece. Use a short crossfade (about 5 ms) on each jump to avoid clicks. At the default
    settings the playhead never reaches the loop end before the next jump, so `loopLength` only matters when `speed` is slow.
@@ -72,4 +73,5 @@ source is attributed. With the full record, widen dataMin/dataMax to about 0.27 
 | Sliding outward between rings went silent | Releases handled before new touches, so both directions keep playing |
 | Release set the clock interval to 0 | Release only stops the clock |
 | Threshold hardcoded in several places | One `threshold` parameter |
+| Random walk moved at most 10% of the file and stuck at the ends | `jump` setting (default 35%), wraps around the ends |
 | Sound chosen by hand in the patch | Chosen by the user; leaf2 by default |
