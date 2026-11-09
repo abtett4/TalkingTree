@@ -3,6 +3,7 @@
 const RINGS = 5;
 const FRAME_MS = 66; // the Arduino sketch prints roughly every 60-80 ms
 const POINTER_STRENGTH = 1400;
+const XFADE_S = 0.005; // crossfade when the playhead jumps into a new loop window
 const QUIET_DB = -60; // waveform view: output below this counts as dead air
 const DELAY_DEADBAND_MS = 50; // ignore delay-time changes smaller than this (touch-strength wobble)
 
@@ -81,17 +82,7 @@ class Engine {
   }
   async setSample(audioBuffer) {
     this.buffer = audioBuffer;
-    if (this.source) this.source.stop();
-    const s = this.ctx.createBufferSource();
-    s.buffer = audioBuffer;
-    s.loop = true;
-    s.playbackRate.value = this.rate;
-    s.connect(this.dry);
-    s.connect(this.delay);
-    s.start();
-    this.source = s;
     this.walk = 0;
-    this.pos = 0;
     this.step();
   }
   async setTreeData(values) {
@@ -152,22 +143,50 @@ class Engine {
   }
   startMetro() {
     this.stopMetro();
+    this.step(); // a Max metro bangs as soon as it starts
     this.timer = setInterval(() => this.step(), this.p.speed);
   }
   stopMetro() {
     clearInterval(this.timer);
     this.timer = null;
   }
-  // drunk over the file length, step = 10% of it, as 2019 wired from waveform~.
+  // drunk over the file length, step = 10% of it, as 2019 wired from waveform~. Each tick the
+  // playhead jumps into the new loop window, as groove~ did in 2019: that is the choppy,
+  // granular sound. A browser buffer source can't seek, so each tick starts a new one and
+  // crossfades over a few ms to avoid clicks.
   step() {
-    if (!this.source || !this.buffer) return;
+    if (!this.buffer) return;
     const len = this.buffer.duration * 1000;
     const maxStep = len * 0.1;
     this.walk = clamp(this.walk + (Math.random() * 2 - 1) * maxStep, 0, len - 1);
     const start = this.walk / 1000;
-    const end = Math.min(len, this.walk + this.p.loopLength) / 1000;
-    this.source.loopStart = start;
-    this.source.loopEnd = Math.max(end, start + 0.01);
+    const end = Math.max(Math.min(len, this.walk + this.p.loopLength) / 1000, start + 0.01);
+
+    const t = this.ctx.currentTime;
+    const s = this.ctx.createBufferSource();
+    s.buffer = this.buffer;
+    s.loop = true;
+    s.loopStart = start;
+    s.loopEnd = end;
+    s.playbackRate.value = this.rate;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(1, t + XFADE_S);
+    s.connect(g);
+    g.connect(this.dry);
+    g.connect(this.delay);
+    s.start(t, start);
+    if (this.source) {
+      const old = this.source, oldGain = this.voiceGain;
+      oldGain.gain.setValueAtTime(1, t);
+      oldGain.gain.linearRampToValueAtTime(0, t + XFADE_S);
+      old.stop(t + XFADE_S + 0.01);
+      old.onended = () => oldGain.disconnect();
+    }
+    this.source = s;
+    this.voiceGain = g;
+    this.pos = start;
+    this.lastT = t;
   }
 }
 

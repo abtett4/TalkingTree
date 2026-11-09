@@ -48,8 +48,11 @@ Defaults are the 2019 patch's startup values.
 5. **Delay time.** Over all rings at or above threshold, take the strongest value and map threshold..2000 to 100..1000 ms
    (clipped). Ignore changes under 50 ms and glide slowly (about 0.5 s) to real ones: a delay time that keeps moving under
    feedback bends the pitch of the whole delay line, which sounds like bubbling. With nothing held, the last time stays.
-6. **Wander.** Each clock tick (every `speed` ms) moves a random walk over the file length, with a maximum step of
-   10% of the file length. Loop start = walk position; loop end = start + `loopLength` (capped at the file end).
+6. **Wander.** Each clock tick (every `speed` ms, plus one tick as soon as the clock starts) moves a random walk over
+   the file length, with a maximum step of 10% of the file length. Loop start = walk position; loop end = start +
+   `loopLength` (capped at the file end). The playhead jumps to the new loop start on every tick, which gives the choppy,
+   granular sound of the 2019 piece. Use a short crossfade (about 5 ms) on each jump to avoid clicks. At the default
+   settings the playhead never reaches the loop end before the next jump, so `loopLength` only matters when `speed` is slow.
 7. **Signal path.** The sample player loops continuously, playing channel 1 only, as `groove~` did.
    - Dry: player × dryGain to both outputs.
    - Delay: player into a delay line (5 s max) with feedback = tap × `feedback`, taken before the filter.
