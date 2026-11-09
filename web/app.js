@@ -24,8 +24,8 @@ const PARAMS = [
   { id: "jump", label: "Jump distance", min: 0, max: 100, step: 1, value: 35, unit: "%" },
   { id: "dryGain", label: "Dry level", min: -48, max: 12, step: 0.5, value: -6, unit: "dB" },
   { id: "delayGain", label: "Delay level", min: -48, max: 12, step: 0.5, value: -22, unit: "dB" },
-  { id: "echoMin", label: "Echo after lean years", min: 0, max: 0.95, step: 0.01, value: 0.3, unit: "" },
-  { id: "echoMax", label: "Echo after good years", min: 0, max: 0.95, step: 0.01, value: 0.9, unit: "" },
+  { id: "echoMin", label: "Echo after lean years", min: 0, max: 0.95, step: 0.01, value: 0.15, unit: "" },
+  { id: "echoMax", label: "Echo after good years", min: 0, max: 0.95, step: 0.01, value: 0.6, unit: "" },
   { id: "threshold", label: "Touch threshold", min: 0, max: 2000, step: 1, value: 500, unit: "" },
 ];
 // Not shown as sliders. Ring N plays data year yearOffset + N - 1; dataMin/dataMax is the 2019 mapping range.

@@ -28,7 +28,7 @@ Defaults are the 2019 patch's startup values.
 | brightSpread | 0 to 8 octaves | 6.9 | was a linear 50 to 10000 Hz |
 | jump | 0 to 100 % of the file | 35 | `drunk` step, 10% in 2019; raised so playback roams more |
 | loopLength | 40 to 1000 ms, log | 1000 | second slider, loop end offset. 2019 ran 50 to 3000 (default 2373), always longer than the jump interval, so it never audibly repeated. Now it shares the speed range: below "Jump every" it repeats, at or above it does not |
-| echoMin, echoMax | 0 to 0.95 | 0.3, 0.9 | feedback range; the year picks a value in it (see Memory below). 2019 had one feedback dial (0.68) |
+| echoMin, echoMax | 0 to 0.95 | 0.15, 0.6 | feedback range; the year picks a value in it (see Memory below). 2019 had one feedback dial (0.68) |
 | dryGain | -48 to +12 dB | -6 | dry `gain~` (115) |
 | delayGain | -48 to +12 dB | -22 | delay `gain~` (99); set by ear in 2026 |
 | dataMin, dataMax | | min and max of the loaded data (0.37, 1.44 for 1990 to 2007) | 2019 used 0.85, 1.2, which only fit its five years |
