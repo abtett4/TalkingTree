@@ -28,12 +28,12 @@ Defaults are the 2019 patch's startup values.
 | brightSpread | 0 to 8 octaves | 6.9 | was a linear 50 to 10000 Hz |
 | jump | 0 to 100 % of the file | 35 | `drunk` step, 10% in 2019; raised so playback roams more |
 | loopLength | 40 to 1000 ms, log | 1000 | second slider, loop end offset. 2019 ran 50 to 3000 (default 2373), always longer than the jump interval, so it never audibly repeated. Now it shares the speed range: below "Jump every" it repeats, at or above it does not |
-| feedback | 0 to 0.95 | 0.68 | dial (87) scaled 0 to 0.99 |
+| echoMin, echoMax | 0 to 0.95 | 0.3, 0.9 | feedback range; the year picks a value in it (see Memory below). 2019 had one feedback dial (0.68) |
 | dryGain | -48 to +12 dB | -6 | dry `gain~` (115) |
 | delayGain | -48 to +12 dB | -22 | delay `gain~` (99); set by ear in 2026 |
 | dataMin, dataMax | | min and max of the loaded data (0.37, 1.44 for 1990 to 2007) | 2019 used 0.85, 1.2, which only fit its five years |
 | yearOffset | index | 0 | ring N reads data value `yearOffset + N - 1` |
-| sound | 6 files | leaf2 | file message boxes; leaf2.wav at load |
+| sound | by year | leaf2 for years at or above average, log3 below | file message boxes; leaf2.wav at load |
 
 ## Behaviour
 
@@ -43,6 +43,10 @@ Defaults are the 2019 patch's startup values.
    - Let `n` = `v` mapped from dataMin..dataMax to -0.5..+0.5, clipped (0 = the middle of the data's range).
    - Playback rate = 2^(speedSpread × n): 1x in the middle, and the slowest to fastest years span `speedSpread` octaves.
    - Filter cutoff = 1100 Hz × 2^(brightSpread × n) (lowpass, Q about 0.7): with the defaults, about 100 Hz to 12 kHz.
+   - **Memory:** feedback = echoMin + (echoMax - echoMin) × the previous-5-year average growth, scaled across the
+     data's range of those averages. After a run of good years the echoes last longer. (The first year has no previous
+     years and uses its own value.) These averages come only from the data, never from how the person touches.
+   - **Sound:** years at or above the data's average growth play leaf2; years below it play log3.
    - 2019 mapped linearly to 0.5..1.5x and 50..10000 Hz. Octave mapping makes each step in growth sound like an equal step.
    - Start the wander clock.
 3. **Touch ends.** Playback rate 0 (silence) and stop the wander clock. The clock's interval is left alone.
@@ -81,4 +85,5 @@ source is attributed. With the full record, widen dataMin/dataMax to about 0.27 
 | Random walk moved at most 10% of the file and stuck at the ends | `jump` setting (default 35%), wraps around the ends |
 | 5 rings, years 1990 to 1994 | 18 on-screen rings, 1990 to 2007, widths following growth; mapping range set from the data |
 | Linear 0.5 to 1.5x rate, 50 to 10000 Hz cutoff | Octave mapping with spread settings (defaults about 0.42 to 2.4x and 100 Hz to 12 kHz) |
-| Sound chosen by hand in the patch | Chosen by the user; leaf2 by default |
+| Sound chosen by hand in the patch | The year picks it: leaf2 above average, log3 below |
+| One fixed feedback amount | Feedback follows the previous-5-year average |

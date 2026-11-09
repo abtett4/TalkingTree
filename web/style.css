@@ -13,6 +13,10 @@
   --wave: #6d5d4b;
   --loop: rgba(63, 191, 90, 0.22);
   --quiet: #c0392b;
+  --above: #2a9d8f;
+  --below: #b5651d;
+  --memory: #2b2118;
+  --grid: #e4d8c3;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -30,9 +34,17 @@
     --wave: #b3a38c;
     --loop: rgba(87, 226, 118, 0.2);
     --quiet: #e2665a;
+    --above: #36a593;
+    --below: #bf7639;
+    --memory: #efe6d6;
+    --grid: #3a3026;
   }
 }
 :root[data-theme="dark"] {
+  --above: #36a593;
+  --below: #bf7639;
+  --memory: #efe6d6;
+  --grid: #3a3026;
   --wave: #b3a38c;
   --loop: rgba(87, 226, 118, 0.2);
   --quiet: #e2665a;
@@ -145,3 +157,39 @@ footer { margin-top: 32px; font-size: 0.85rem; color: var(--muted); }
   .params label input { grid-column: 1 / -1; grid-row: 2; }
 }
 .params .reset { justify-self: start; font-size: 0.85rem; padding: 6px 12px; }
+
+body:not(.debug) .debug-only { display: none !important; }
+.side { display: grid; gap: 20px; min-width: 0; }
+.datapanel h2 { margin: 0 0 6px; font-size: 1rem; color: var(--muted); font-weight: 600; }
+.chartlegend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+.swatch.above { background: var(--above); }
+.swatch.below { background: var(--below); }
+.swatch.memory { height: 2px; vertical-align: 3px; background: var(--memory); border-radius: 1px; }
+.chartwrap { position: relative; }
+#chart { display: block; width: 100%; height: auto; overflow: visible; }
+#chart .grid { stroke: var(--grid); stroke-width: 1; }
+#chart .meanline { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+#chart .axis { fill: var(--muted); font-size: 10px; }
+#chart .bar.above { fill: var(--above); }
+#chart .bar.below { fill: var(--below); }
+#chart .bar { transition: opacity 120ms; }
+#chart.playing .bar:not(.on) { opacity: 0.35; }
+#chart .memory { fill: none; stroke: var(--memory); stroke-width: 2; stroke-linejoin: round; }
+#chart .hit { fill: transparent; cursor: default; }
+.tip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+.datatable { margin-top: 6px; font-size: 0.85rem; }
+.datatable table { border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.datatable th, .datatable td { padding: 2px 10px 2px 0; text-align: left; }
+.datatable th { color: var(--muted); font-weight: 600; }

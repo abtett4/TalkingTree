@@ -24,9 +24,14 @@ Then open http://localhost:8000.
   (`TalkingTreeScript.ino`) at 9600 baud.
 - **Demo:** plays random touches, one ring at a time.
 
+## Debug mode
+
+Add `?debug` to the address (http://localhost:8000/?debug) to show the sound settings, a sound override and the
+playback view. Visitors without it see only the tree, the growth chart and the buttons.
+
 ## Playback view
 
-The panel next to the tree is for debugging. It shows the current file's waveform (channel 1, as played), the wandering loop window,
+The playback panel (debug mode) is for debugging. It shows the current file's waveform (channel 1, as played), the wandering loop window,
 an estimated playhead, an output level bar that turns red below -60 dB, and the live rate, cutoff and delay time. Use it to match
 stretches of dead air to the part of the file being played.
 

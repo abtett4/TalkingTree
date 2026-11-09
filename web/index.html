@@ -20,13 +20,32 @@
         <p id="readout" class="readout" aria-live="polite">Press Start, then touch a ring.</p>
       </section>
 
-      <section class="wavepanel" aria-label="Waveform view">
+      <div class="side">
+      <section class="datapanel" aria-labelledby="chart-title">
+        <h2 id="chart-title">Growth by year</h2>
+        <div class="chartlegend">
+          <span><span class="swatch above"></span>Above average: leaves</span>
+          <span><span class="swatch below"></span>Below average: log</span>
+          <span><span class="swatch memory"></span>Previous 5-year average: echo length</span>
+        </div>
+        <div class="chartwrap">
+          <svg id="chart" role="img" aria-label="Bar chart of the tree-ring growth index for each year, drawn above or below the average"></svg>
+          <div id="tip" class="tip" hidden></div>
+        </div>
+        <details class="datatable">
+          <summary>Data table</summary>
+          <table id="datatable"><thead><tr><th>Year</th><th>Growth index</th><th>Previous 5-year avg</th><th>Sound</th></tr></thead><tbody></tbody></table>
+        </details>
+      </section>
+
+      <section class="wavepanel debug-only" aria-label="Waveform view">
         <h2>Playback</h2>
         <canvas id="wave" aria-label="Waveform of the current sound file, with the loop window and playhead"></canvas>
         <div class="meterbar" title="Output level"><span id="meter"></span></div>
         <pre id="waveinfo" class="waveinfo">Press Start to load a sound.</pre>
         <p class="legend"><span class="swatch loop"></span>loop window <span class="swatch head"></span>playhead (grey when stopped) · the bar is output level; it turns red below -60 dB (dead air)</p>
       </section>
+      </div>
     </div>
 
     <section class="controls">
@@ -36,10 +55,11 @@
         <button id="serial" disabled hidden>Connect Arduino</button>
       </div>
 
-      <label class="field">Sound
+      <label class="field debug-only">Sound
         <select id="sound" disabled>
+          <option value="auto" selected>By year (leaves or log)</option>
           <option value="leaf1">Leaves 1</option>
-          <option value="leaf2" selected>Leaves 2</option>
+          <option value="leaf2">Leaves 2</option>
           <option value="leaf3">Leaves 3</option>
           <option value="log1">Log 1</option>
           <option value="log2">Log 2</option>
@@ -47,7 +67,7 @@
         </select>
       </label>
 
-      <details>
+      <details class="debug-only">
         <summary>Sound settings</summary>
         <div id="params" class="params"></div>
       </details>

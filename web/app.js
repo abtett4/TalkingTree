@@ -7,6 +7,10 @@ const POINTER_STRENGTH = 1400;
 const CUTOFF_CENTER_HZ = 1100; // delay filter cutoff for a year in the middle of the data's range
 const XFADE_S = 0.005; // crossfade when the playhead jumps into a new loop window
 const QUIET_DB = -60; // waveform view: output below this counts as dead air
+const MEMORY_YEARS = 5; // the delay's feedback follows the average of this many previous years
+const SOUND_ABOVE = "leaf2"; // played for years at or above the data's average growth
+const SOUND_BELOW = "log3"; // played for years below it
+const DEBUG = new URLSearchParams(location.search).has("debug"); // ?debug shows settings and the playback view
 const DELAY_DEADBAND_MS = 50; // ignore delay-time changes smaller than this (touch-strength wobble)
 
 // Defaults are the 2019 patch's loadbang values (see docs/BEHAVIOR.md).
@@ -20,7 +24,8 @@ const PARAMS = [
   { id: "jump", label: "Jump distance", min: 0, max: 100, step: 1, value: 35, unit: "%" },
   { id: "dryGain", label: "Dry level", min: -48, max: 12, step: 0.5, value: -6, unit: "dB" },
   { id: "delayGain", label: "Delay level", min: -48, max: 12, step: 0.5, value: -22, unit: "dB" },
-  { id: "feedback", label: "Feedback", min: 0, max: 0.95, step: 0.01, value: 0.68, unit: "" },
+  { id: "echoMin", label: "Echo after lean years", min: 0, max: 0.95, step: 0.01, value: 0.3, unit: "" },
+  { id: "echoMax", label: "Echo after good years", min: 0, max: 0.95, step: 0.01, value: 0.9, unit: "" },
   { id: "threshold", label: "Touch threshold", min: 0, max: 2000, step: 1, value: 500, unit: "" },
 ];
 // Not shown as sliders. Ring N plays data year yearOffset + N - 1; dataMin/dataMax is the 2019 mapping range.
@@ -36,6 +41,14 @@ let engine = null;
 let treeData = null; // { startYear, values }
 let sources = null; // per input: one strength value per ring
 let rings = [];
+
+// Average of the `years` values before each one (fewer at the start; the first year uses itself).
+function trailingAverages(values, years) {
+  return values.map((v, i) => {
+    const prev = values.slice(Math.max(0, i - years), i);
+    return prev.length ? prev.reduce((a, b) => a + b, 0) / prev.length : v;
+  });
+}
 
 // ---------------------------------------------------------------- engines
 
@@ -55,6 +68,13 @@ class Engine {
     this.pos = 0;
     this.ring = -1;
     this.cutoff = 10000;
+    this.feedback = 0.68;
+    this.memory = []; // per year: average growth of the previous MEMORY_YEARS years
+    this.mean = 1;
+    this.samples = {}; // { above: {buffer, name}, below: {buffer, name} }
+    this.manual = null; // a fixed {buffer, name} chosen in the debug panel, or null for "by year"
+    this.bufferName = "";
+    this.onBuffer = () => {};
     this.delayMs = 100;
 
     this.dry = ctx.createGain();
@@ -80,20 +100,25 @@ class Engine {
     const t = this.ctx.currentTime;
     this.dry.gain.setTargetAtTime(dbToGain(this.p.dryGain), t, 0.02);
     this.wet.gain.setTargetAtTime(dbToGain(this.p.delayGain), t, 0.02);
-    this.fb.gain.setTargetAtTime(this.p.feedback, t, 0.02);
+    this.fb.gain.setTargetAtTime(this.feedback, t, 0.02);
   }
   setParam(id, value) {
     this.p[id] = value;
     this.applyLevels();
     if (id === "speed" && this.timer) this.startMetro();
   }
-  async setSample(audioBuffer) {
-    this.buffer = audioBuffer;
-    this.walk = 0;
+  setSample({ buffer, name }) {
+    if (this.buffer === buffer) return;
+    this.buffer = buffer;
+    this.bufferName = name;
+    this.walk %= buffer.duration * 1000;
+    this.onBuffer(buffer, name);
     this.step();
   }
-  async setTreeData(values) {
+  setTreeData(values) {
     this.data = values;
+    this.mean = values.reduce((a, b) => a + b, 0) / values.length;
+    this.memory = trailingAverages(values, MEMORY_YEARS);
   }
   setRings(values) {
     const thr = this.p.threshold;
@@ -119,6 +144,14 @@ class Engine {
         this.setRate(Math.pow(2, this.p.speedSpread * n)); // 1x at the middle of the data's range
         this.cutoff = clamp(CUTOFF_CENTER_HZ * Math.pow(2, this.p.brightSpread * n), 40, 16000);
         this.filter.frequency.setTargetAtTime(this.cutoff, this.ctx.currentTime, 0.01);
+        // The delay is the tree's memory: after a run of good years the echoes last longer.
+        const m = this.memory[this.p.yearOffset + i];
+        const mLo = Math.min(...this.memory), mHi = Math.max(...this.memory);
+        this.feedback = this.p.echoMin + scaleClip(m, mLo, mHi, 0, 1) * (this.p.echoMax - this.p.echoMin);
+        this.applyLevels();
+        // Above-average years play the leaves, below-average years the log.
+        const pick = this.manual ?? (g >= this.mean ? this.samples.above : this.samples.below);
+        if (pick) this.setSample(pick);
       }
       this.startMetro();
     });
@@ -213,14 +246,23 @@ async function loadTreeData() {
 }
 
 const sampleCache = new Map();
-async function loadSample(name) {
+async function loadBuffer(name) {
   if (!sampleCache.has(name)) {
     const res = await fetch(`audio/${name}.mp3`);
     if (!res.ok) throw new Error(`Could not load ${name}.mp3`);
     sampleCache.set(name, await ctx.decodeAudioData(await res.arrayBuffer()));
   }
-  await engine.setSample(sampleCache.get(name));
-  waveform.setBuffer(sampleCache.get(name), name);
+  return { buffer: sampleCache.get(name), name };
+}
+
+// "auto" = the data picks the sound per year; any other value fixes one file (debug panel only).
+async function chooseSound(value) {
+  if (value === "auto") {
+    engine.manual = null;
+  } else {
+    engine.manual = await loadBuffer(value);
+    engine.setSample(engine.manual);
+  }
 }
 
 // ---------------------------------------------------------------- tree drawing and touch
@@ -374,6 +416,86 @@ async function connectSerial() {
 }
 
 
+
+// ---------------------------------------------------------------- growth chart
+
+// One bar per year, drawn up or down from the average (above = leaves, below = log), with the
+// previous-5-year average (the delay's memory) as a line. The playing year is highlighted.
+const chart = {
+  svg: $("chart"),
+  bars: [],
+  build() {
+    const v = treeData.values;
+    const mean = v.reduce((a, b) => a + b, 0) / v.length;
+    const memory = trailingAverages(v, MEMORY_YEARS);
+    const W = 400, H = 190, L = 30, R = 6, T = 8, B = 22;
+    const pw = W - L - R, ph = H - T - B;
+    const y0 = 0.3, y1 = 1.5;
+    const y = (x) => T + ph * (1 - (x - y0) / (y1 - y0));
+    const band = pw / v.length;
+    const svg = this.svg;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const el = (tag, attrs, text) => {
+      const e = document.createElementNS(NS, tag);
+      for (const [k, val] of Object.entries(attrs)) e.setAttribute(k, val);
+      if (text !== undefined) e.textContent = text;
+      svg.append(e);
+      return e;
+    };
+    for (const g of [0.5, 1.5]) {
+      el("line", { class: "grid", x1: L, x2: W - R, y1: y(g), y2: y(g) });
+      el("text", { class: "axis", x: L - 6, y: y(g) + 3.5, "text-anchor": "end" }, g.toFixed(1));
+    }
+    v.forEach((val, i) => {
+      const x = L + i * band + 1, w = band - 2; // 2px gap between bars
+      const top = y(Math.max(val, mean)), bot = y(Math.min(val, mean));
+      const r = Math.min(2, w / 2, (bot - top) / 2);
+      // Round only the data end; the end on the average line stays square.
+      const d = val >= mean
+        ? `M ${x} ${bot} V ${top + r} Q ${x} ${top} ${x + r} ${top} H ${x + w - r} Q ${x + w} ${top} ${x + w} ${top + r} V ${bot} Z`
+        : `M ${x} ${top} V ${bot - r} Q ${x} ${bot} ${x + r} ${bot} H ${x + w - r} Q ${x + w} ${bot} ${x + w} ${bot - r} V ${top} Z`;
+      this.bars[i] = el("path", { class: `bar ${val >= mean ? "above" : "below"}`, d });
+      const year = treeData.startYear + i;
+      if (year % 5 === 0) el("text", { class: "axis", x: x + w / 2, y: H - 6, "text-anchor": "middle" }, year);
+    });
+    el("line", { class: "meanline", x1: L, x2: W - R, y1: y(mean), y2: y(mean) });
+    el("text", { class: "axis", x: L - 6, y: y(mean) + 3.5, "text-anchor": "end" }, "avg");
+    el("polyline", { class: "memory", points: memory.map((m, i) => `${L + (i + 0.5) * band},${y(m)}`).join(" ") });
+
+    // Hover: hit targets are the full column, wider than the bar.
+    const tip = $("tip");
+    v.forEach((val, i) => {
+      const hit = el("rect", { class: "hit", x: L + i * band, y: T, width: band, height: ph });
+      const show = () => {
+        const year = treeData.startYear + i;
+        const diff = ((val / mean - 1) * 100).toFixed(0);
+        tip.innerHTML = `<strong>${year}</strong><br>growth ${val.toFixed(2)} (${diff >= 0 ? "+" : ""}${diff}% vs average)<br>previous 5 years ${memory[i].toFixed(2)}<br>sound: ${val >= mean ? "leaves" : "log"}`;
+        const box = svg.getBoundingClientRect();
+        tip.style.left = `${((L + (i + 0.5) * band) / W) * box.width}px`;
+        tip.style.top = `${(y(Math.max(val, mean)) / H) * box.height}px`;
+        tip.hidden = false;
+      };
+      hit.addEventListener("pointerenter", show);
+      hit.addEventListener("pointerleave", () => (tip.hidden = true));
+    });
+
+    const tbody = $("datatable").querySelector("tbody");
+    v.forEach((val, i) => {
+      const tr = document.createElement("tr");
+      for (const cell of [treeData.startYear + i, val.toFixed(3), memory[i].toFixed(3), val >= mean ? "leaves" : "log"]) {
+        const td = document.createElement("td");
+        td.textContent = cell;
+        tr.append(td);
+      }
+      tbody.append(tr);
+    });
+  },
+  highlight(i) {
+    this.svg.classList.toggle("playing", i >= 0);
+    this.bars.forEach((b, j) => b.classList.toggle("on", j === i));
+  },
+};
+
 // ---------------------------------------------------------------- waveform view (debugging)
 
 // Shows the current sound file, the wandering loop window, the playhead, and the output level,
@@ -461,11 +583,12 @@ const waveform = {
     const year = engine.ring >= 0 && engine.rate > 0 ? yearFor(engine.ring) : "none";
     $("waveinfo").textContent =
       `${this.name}.mp3 (${fmt(dur)} s)  ·  playhead ${fmt(t)} s  ·  loop ${fmt(src.loopStart)} to ${fmt(src.loopEnd)} s\n` +
-      `ring: ${year}  ·  rate ${fmt(engine.rate)}x  ·  cutoff ${Math.round(engine.cutoff)} Hz  ·  delay ${Math.round(engine.delayMs)} ms  ·  output ${isFinite(this.levelDb) ? Math.round(this.levelDb) : "-inf"} dB`;
+      `ring: ${year}  ·  rate ${fmt(engine.rate)}x  ·  cutoff ${Math.round(engine.cutoff)} Hz  ·  delay ${Math.round(engine.delayMs)} ms  ·  echo ${fmt(engine.feedback)}  ·  output ${isFinite(this.levelDb) ? Math.round(this.levelDb) : "-inf"} dB`;
   },
 };
 
 function animate() {
+  if (!DEBUG) return; // the playback view only exists in debug mode
   waveform.draw();
   requestAnimationFrame(animate);
 }
@@ -483,8 +606,11 @@ function frame() {
     lights[i].style.opacity = v >= thr ? clamp((v / 2000) * (150 / 255) * 1.6, 0.25, 1) : 0;
     if (v >= thr) active = i;
   });
-  if (active >= 0) {
-    $("readout").textContent = `${yearFor(active)}: growth index ${growthFor(active).toFixed(2)}`;
+  const playing = engine.rate > 0 ? engine.ring : -1;
+  chart.highlight(playing);
+  if (playing >= 0) {
+    const sound = engine.bufferName.startsWith("leaf") ? "leaves" : "log";
+    $("readout").textContent = `${yearFor(playing)}: growth index ${growthFor(playing).toFixed(2)} · ${sound}`;
   }
 }
 
@@ -544,7 +670,10 @@ $("start").addEventListener("click", async () => {
     engine.setParam("dataMin", Math.min(...treeData.values));
     engine.setParam("dataMax", Math.max(...treeData.values));
     await engine.setTreeData(treeData.values);
-    await loadSample($("sound").value);
+    engine.onBuffer = (buffer, name) => waveform.setBuffer(buffer, name);
+    engine.samples = { above: await loadBuffer(SOUND_ABOVE), below: await loadBuffer(SOUND_BELOW) };
+    engine.setSample(engine.samples.above);
+    await chooseSound($("sound").value);
     setInterval(frame, FRAME_MS);
     requestAnimationFrame(animate);
     $("start").textContent = "Running";
@@ -571,9 +700,13 @@ $("demo").addEventListener("click", () => {
 
 $("serial").addEventListener("click", () => connectSerial().catch((err) => status(`Serial: ${err.message}`)));
 
-$("sound").addEventListener("change", () => loadSample($("sound").value).catch((err) => status(err.message)));
+$("sound").addEventListener("change", () => chooseSound($("sound").value).catch((err) => status(err.message)));
 
 buildParams();
+if (DEBUG) document.body.classList.add("debug");
 loadTreeData()
-  .then(drawTree)
+  .then(() => {
+    drawTree();
+    chart.build();
+  })
   .catch((err) => status(`Could not load tree data: ${err.message}`));
