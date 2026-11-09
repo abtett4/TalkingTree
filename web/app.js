@@ -428,9 +428,9 @@ const chart = {
     const v = treeData.values;
     const mean = v.reduce((a, b) => a + b, 0) / v.length;
     const memory = trailingAverages(v, MEMORY_YEARS);
-    const W = 400, H = 190, L = 30, R = 6, T = 8, B = 22;
+    const W = 400, H = 220, L = 30, R = 6, T = 8, B = 22;
     const pw = W - L - R, ph = H - T - B;
-    const y0 = 0.3, y1 = 1.5;
+    const y0 = 0, y1 = 1.5; // start at zero growth so bar lengths read honestly
     const y = (x) => T + ph * (1 - (x - y0) / (y1 - y0));
     const band = pw / v.length;
     const svg = this.svg;
@@ -442,9 +442,9 @@ const chart = {
       svg.append(e);
       return e;
     };
-    for (const g of [0.5, 1.5]) {
+    for (const g of [0, 0.5, 1.5]) {
       el("line", { class: "grid", x1: L, x2: W - R, y1: y(g), y2: y(g) });
-      el("text", { class: "axis", x: L - 6, y: y(g) + 3.5, "text-anchor": "end" }, g.toFixed(1));
+      el("text", { class: "axis", x: L - 6, y: y(g) + 3.5, "text-anchor": "end" }, g === 0 ? "0" : g.toFixed(1));
     }
     v.forEach((val, i) => {
       const x = L + i * band + 1, w = band - 2; // 2px gap between bars
