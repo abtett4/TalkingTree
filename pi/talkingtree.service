@@ -1,0 +1,17 @@
+# Installed by install.sh, which fills in USER and DIR.
+[Unit]
+Description=Talking Tree (Pure Data)
+# Starts once sound is up. Deliberately no network dependency: the piece runs offline.
+After=sound.target
+
+[Service]
+User=USER
+SupplementaryGroups=audio dialout
+ExecStart=DIR/run.sh
+Restart=always
+RestartSec=3
+LimitRTPRIO=95
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
