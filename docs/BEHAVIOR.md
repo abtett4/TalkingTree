@@ -2,7 +2,7 @@
 
 What the piece does, independent of any tool. Traced from the 2019 Max/MSP patch
 (`TalkingTreePatch.maxpat`, Max 7.3.5), which stays in the repo unchanged. The web version
-(`web/app.js`, Web Audio) follows this, and the planned Raspberry Pi version (Pure Data) should too.
+(`web/app.js`, Web Audio) follows this, and the Raspberry Pi version (`pi/`, Pure Data) does too.
 
 ## Input
 
