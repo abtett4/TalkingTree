@@ -11,6 +11,8 @@
 #X obj 350 192 t f f;
 #X obj 350 232 expr \$f1 == 1 && \$f2 == 0;
 #X text 450 272 then remember the new state, f 60;
+#X obj 20 192 expr if(\$f1 >= tt_threshold \, \$f1 \, 0);
+#X obj 20 232 s tt-held;
 #X obj 150 272 sel 1;
 #X obj 150 312 s tt-release;
 #X obj 350 272 sel 1;
@@ -27,8 +29,10 @@
 #X connect 9 1 10 0;
 #X connect 9 0 8 1;
 #X connect 9 0 10 1;
-#X connect 8 0 12 0;
+#X connect 4 0 12 0;
 #X connect 12 0 13 0;
-#X connect 10 0 14 0;
+#X connect 8 0 14 0;
 #X connect 14 0 15 0;
-#X connect 15 0 16 0;
+#X connect 10 0 16 0;
+#X connect 16 0 17 0;
+#X connect 17 0 18 0;

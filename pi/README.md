@@ -26,6 +26,9 @@ pi/
 To use the real tree, install comport (in Pd: Help → Find externals → `comport`), plug in the Arduino, and click
 the message box with its port (COM3 or COM4 on Windows; check Device Manager).
 
+The patch handles up to 18 rings (1990 to 2007), so a bigger tree only needs the Arduino sketch to print more
+values per line. Ring N plays year 1990 + N - 1. The test panel shows the 2019 tree's five rings.
+
 Settings live in `lib/tt-params.pd`. Edit the numbers in the message box and click it to hear the change.
 
 ## How it is put together
@@ -34,7 +37,7 @@ Settings live in `lib/tt-params.pd`. Edit the numbers in the message box and cli
 | --- | --- |
 | `tt-params` | All settings, with the defaults from BEHAVIOR.md |
 | `tt-load` | Loads the sounds and the data, then turns audio on |
-| `tt-serial` | Reads `lag ring1 … ring5` lines from the Arduino. If nothing arrives for 5 s, it reopens the port |
+| `tt-serial` | Reads `lag ring1 ring2 …` lines from the Arduino, with any number of rings. If nothing arrives for 5 s, it reopens the port |
 | `tt-touch`, `tt-ring` | Works out touches and releases, handling releases first. The strongest held ring sets the delay time |
 | `tt-year` | Looks up the touched ring's year and turns it into rate, filter cutoffs, loudness, echo and sound |
 | `tt-player~`, `tt-voice~` | The wandering loop player, with two voices crossfading over 5 ms on every jump |

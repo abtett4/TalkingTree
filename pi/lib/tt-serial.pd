@@ -1,5 +1,5 @@
-#N canvas 40 40 581 852 12;
-#X text 20 10 Arduino input. Reads lines of 'lag ring1 ring2 ring3 ring4 ring5' (tab-separated \, 9600 baud) and sends the five ring values to tt-rings. Nothing happens until a port name arrives on tt_port. If no bytes arrive for 5 seconds it closes and reopens the port \, so the Arduino can be plugged in late or replugged., f 60;
+#N canvas 40 40 546 852 12;
+#X text 20 10 Arduino input. Reads lines of 'lag ring1 ring2 ...' (tab-separated \, any number of rings \, 9600 baud) and sends the ring values to tt-rings. Nothing happens until a port name arrives on tt_port. If no bytes arrive for 5 seconds it closes and reopens the port \, so the Arduino can be plugged in late or replugged., f 60;
 #X obj 20 120 r tt_port;
 #X obj 20 150 symbol;
 #X obj 20 180 t b s;
@@ -22,11 +22,11 @@
 #X obj 110 600 fudiparse;
 #X obj 110 630 t l l;
 #X obj 250 660 list length;
-#X obj 250 690 == 6;
+#X obj 250 690 >= 2;
 #X obj 110 720 spigot;
 #X obj 110 750 list split 1;
 #X obj 110 790 s tt-rings;
-#X text 260 750 drop the lag value \, keep the five rings, f 60;
+#X text 260 750 drop the lag value \, keep the rings, f 60;
 #X connect 1 0 2 0;
 #X connect 2 0 3 0;
 #X connect 3 0 4 0;
